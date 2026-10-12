@@ -67,7 +67,7 @@ paper-raft/
 - **results.json**: `{run_id, status: ok|failed, reason?, samples: {u_vertical: [[y,u]...], v_horizontal: [[x,v]...]}, errors: {u_max, u_rms, v_max, v_rms}, tolerance, pass: bool}`.
 - **reviews/<name>.json**: `{method, reviewed_sha, reviewer_agent, verdict: verified|discrepancies|unverified, discrepancies: [{file, line, extraction_id, page, description, severity}]}`.
 
-**Status rule:** a run counts as *verified* only when `pass` is true, a review exists with verdict `verified`, and `reviewed_sha == manifest.git_sha` (once the commit is resolved for the method folder). Otherwise it is *unverified*, or *failed* when `status` is failed. The dashboard and the CLI derive status the same way, from one function in `raft/`.
+**Status rule:** a run counts as *verified* only when `pass` is true, a review exists with verdict `verified`, and `reviewed_sha` equals the last commit that touched `methods/<name>/` as of the run's `git_sha` (so unrelated commits elsewhere don't invalidate a review, but any change to the solver does). Otherwise it is *unverified*, or *failed* when `status` is failed. The dashboard and the CLI derive status the same way, from one function in `raft/`.
 
 ## 5. Agent flow
 
