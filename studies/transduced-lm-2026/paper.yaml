@@ -17,4 +17,3 @@ experiment: >-
   (WikiText-2 + PTB tokenizer) and GPT-2 experiments are not covered. With the genetic code every covering
   prefix is already a cylinder, so the remainder is always empty: the code paths for remainder entries and
   their stop weights are not exercised here.
-draft: true  # until extraction from the PDF exists and the methods are reviewed
