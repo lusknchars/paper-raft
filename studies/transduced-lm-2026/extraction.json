@@ -1,0 +1,587 @@
+{
+  "study": "transduced-lm-2026",
+  "extractor_agent": "claude-code:raft-extractor",
+  "items": [
+    {
+      "id": "target-prefix-probability",
+      "kind": "equation",
+      "text": "Estimand. For a source LM p_X over X* and a transducer f: X* -> Y*, the target prefix probability is Z = p_Y->(y) = Pr_{X~p_X}[y ⪯ f(X)] = sum_x 1{y ⪯ f(x)} p_X(x) (Eq. 3). Source prefix probability p_X->(x) = sum_{x'} p_X(x x'); conditionals p_X->(x'|x) = p_X->(x x')/p_X->(x) and p_X->(EOS|x) = p_X(x)/p_X->(x) (Eq. 1). p_X(x) = p_X->(EOS|x) prod_t p_X->(x_t|x_<t).",
+      "page": 3,
+      "quote": "A transduced language model is a language model pY characterized by the tuple (pX, f) where f is a transducer encoding a function f: X* → Y*.",
+      "missing": false
+    },
+    {
+      "id": "zero-mass-convention",
+      "kind": "boundary_condition",
+      "text": "When p_X->(x) = 0 take p_X->(x'|x) = 0 and p_X->(EOS|x) = 1. A remainder summand is defined to be zero when p_X->(EOS|x) = 0 (its contribution to A is then zero).",
+      "page": 3,
+      "quote": "When p⃗X(x) = 0, we take p⃗X(x′ | x) = 0 and p⃗X(EOS | x) def= 1.",
+      "missing": false
+    },
+    {
+      "id": "quotient-remainder-decomposition",
+      "kind": "equation",
+      "text": "Precover P(y) = {x : y ⪯ f(x)}; C(y) = largest union of cylinders <x> contained in P(y); quotient Q(y) = pf(C(y)) (prefix-free generators); remainder R(y) = P(y) \\ C(y). Then p_Y->(y) = sum_{x in R(y)} p_X(x) + sum_{x in Q(y)} p_X->(x) (Eq. 4). Every source string is counted exactly once.",
+      "page": 3,
+      "quote": "The quotient and remainder are Q(y) def= pf(C(y)) and R(y) def= P(y) \\ C(y). The computational shortcut is the quotient–remainder decomposition",
+      "missing": false
+    },
+    {
+      "id": "precover-predicates",
+      "kind": "equation",
+      "text": "The algorithms touch the transducer only through three predicates: is_live(x,y): some extension x x' is in P(y); is_member(x,y): x in P(y) (output so far covers y); is_cylinder(x,y): every extension covers y. First cylinder prefix on a path goes to the quotient; a member that is not a cylinder is a remainder element; a non-live prefix is dropped. Live set A(x) = {x' in X : is_live(x x', y)}.",
+      "page": 3,
+      "quote": "These predicates locate the decomposition members Eq. (4): the first cylinder prefix on a path generates a cylinder of C(y) and so belongs to the quotient Q(y)",
+      "missing": false
+    },
+    {
+      "id": "predicate-implementation",
+      "kind": "method",
+      "text": "The paper evaluates the predicates by lazy determinization of the finite-state transducer, following Snæbjarnarson et al. (2026), and gives no further detail.",
+      "page": 3,
+      "quote": "",
+      "missing": true,
+      "assumption": "Do not build a transducer: call setup.transducer.is_live / is_member / is_cylinder (problem/setup.py, CodonTransducer). There is_cylinder == is_member because the codon output only grows, so in this setup no remainder entries ever arise (member implies cylinder) and R stays empty."
+    },
+    {
+      "id": "twist-is-live",
+      "kind": "equation",
+      "text": "Twist psi(x) = is_live(x, y_{<=t}) (written psi_t), relative to the target prefix of the current call. It gates the extension step: only children with psi(x x') > 0 are created (Fig. 1 line 23), and stochastic prunes use the twisted weights W^(i) = w^(i) psi(x^(i)). Under the live twist psi = 1 on every surviving particle, so twisted weights equal raw weights. Every experiment uses this twist.",
+      "page": 4,
+      "quote": "ψ = is_live keeps exactly the particles such that is_live(x,y) holds.",
+      "missing": false
+    },
+    {
+      "id": "twist-is-live-all-experiments",
+      "kind": "parameter",
+      "text": "All five estimators in every experiment use psi = is_live.",
+      "page": 11,
+      "quote": "Every setting uses the live twist is_live.",
+      "missing": false
+    },
+    {
+      "id": "beam-summing",
+      "kind": "method",
+      "text": "beam_summing(y, psi, prune), Fig. 1 lines 1-27. Recursive over target prefixes. N = |y|. If N = 0: return Q' = {(eps, 1)}, R' = {}, Z_hat = []. Else recurse on y_{<N} to get (Q', R', Z_hat); pool P <- Queue(Q'); Q, R <- {}, {}; A <- 0. Remainder re-check: for each (x, w) in R', if is_member(x, y): R.add((x,w)), A += w (weight already contains the stop factor). Then while P nonempty: P' <- {}; for each (x, w) in P: if is_cylinder(x, y): Q.add((x,w)); A += w; continue. If is_member(x, y): R.add((x, w * p(EOS|x))); A += w * p(EOS|x) (no continue: the particle is still extended). For every x' in X with psi(x x') > 0: P'.add((x x', w * p(x'|x))). After the loop over P: P <- prune(P', A). When the pool empties append A to Z_hat. Return (Q, R, Z_hat). The estimate for y is Z_hat[|y|-1] (last element); Z_hat[t-1] estimates p_Y->(y_{<=t}). Q, R and the pool are multisets. With prune_M it is standard beam search; with prune_tau it is the prior work's algorithm.",
+      "page": 4,
+      "quote": "beam_summing hands each prune call the pool and the current-position running total A. A prune takes only the arguments it needs.",
+      "missing": false
+    },
+    {
+      "id": "empty-target-base-case",
+      "kind": "boundary_condition",
+      "text": "Base case of the target recursion: for N = |y| = 0 the deterministic/SWOR algorithms start from the single particle (eps, 1); smc_rb starts from M copies of (eps, 1/M) (Fig. 12 line 109). Z_hat starts as an empty list. The call for t=1 therefore starts from total weight one at the empty prefix.",
+      "page": 4,
+      "quote": "(Q′,R′), Ẑ ← ({(ε,1)}, ∅), []",
+      "missing": false
+    },
+    {
+      "id": "beam-summing-z-hat",
+      "kind": "equation",
+      "text": "Per-position estimate. V_t(x) = sum_{(x',w) in Q_t} w 1{x'=x} + sum_{(x',w) in R_t} w / p(EOS|x) 1{x'=x} (Eq. 5). Z_hat_t = sum_{x in R(y<=t)} V_t(x) p(EOS|x) + sum_{x in Q(y<=t)} V_t(x) (Eq. 6), which equals the running total A of the call for y_{<=t} (A sums every quotient and remainder weight added in that call, including re-checked remainder entries). This is how beam_summing, beam_swor, beam_swor_adaptive and smc_rb accumulate Z_hat.",
+      "page": 5,
+      "quote": "Since the quotient and remainder entry weights are the only terms added to A, grouping them by source prefix gives",
+      "missing": false
+    },
+    {
+      "id": "prune-m",
+      "kind": "method",
+      "text": "prune_M(P'), Fig. 1 lines 28-31: sort the child pool descending by weight w and return the first min(M, N) particles unchanged (standard beam search). Deterministic, biased (keeps M heaviest). Used by beam_summing in the worst case.",
+      "page": 4,
+      "quote": "((x(i),w(i)))N i=1 ← sort_descending(P′, key=w) return {(x(i),w(i)) for i = 1,...,min(M,N)}",
+      "missing": false
+    },
+    {
+      "id": "prune-tau",
+      "kind": "method",
+      "text": "prune_tau(P'), Fig. 1 lines 32-39: if |P'| = 0 return {}. Sort descending by w; cumulative W_i = sum_{j<=i} w^(j); k = smallest i with W_i >= (1 - tau) W_N; return the first k particles unchanged. Deterministic, keeps the heaviest particles holding at least 1 - tau of the pool's mass. Does not use M. Used by beam_summing in the bigram case with tau = 1e-3.",
+      "page": 4,
+      "quote": "k ← smallest i with Wi ≥ (1−τ)WN",
+      "missing": false
+    },
+    {
+      "id": "prune-sort-ties",
+      "kind": "method",
+      "text": "Neither prune_M nor prune_tau says how equal weights are ordered by sort_descending, nor whether prune_tau compares W_i >= (1-tau)W_N with exact or tolerant floating-point comparison.",
+      "page": 4,
+      "quote": "",
+      "missing": true,
+      "assumption": "Use a stable descending sort by weight (ties keep insertion order, e.g. numpy argsort(-w, kind='stable')) and an exact >= comparison on cumulative sums computed in that order. In the worst case all covering particles have equal weight, so any tie rule gives the same total min(M, 3^T) * 4^(-3T) (Eq. 49 with equality); tie order only changes which strings are kept."
+    },
+    {
+      "id": "ht-estimator",
+      "kind": "equation",
+      "text": "Horvitz-Thompson reweighting. For a pool of child particles i = 1..N with weights w^(i) = w^(m) p(x'|x^(m)) and a sampled subset S with inclusion probabilities pi_i, Sigma_hat_h = sum_{i in S} (w^(i)/pi_i) h^(i) (Eq. 10) is unbiased: E_S[Sigma_hat_h] = sum_i w^(i) h^(i) (Eq. 11a), valid whenever pi_i = 0 only where w^(i) h^(i) = 0. Each survivor's new weight is w^(i)/pi_i.",
+      "page": 6,
+      "quote": "The estimate is unbiased for any valid inclusion probabilities, those with πi = 0 only where w(i)h(i) = 0",
+      "missing": false
+    },
+    {
+      "id": "swor-inclusion-probabilities",
+      "kind": "equation",
+      "text": "Inclusion probabilities for fixed-size SWOR (untwisted case; with a twist use W^(i) = w^(i) psi(x^(i))). If the number of positive-weight children |I+| <= M keep all of them unchanged. Otherwise pi_i = min(1, c w^(i)) with c > 0 solved so that sum_i min(1, c w^(i)) = M (Eq. 12). Capped children (pi_i = 1) form the certainty set and keep their weights; every non-certain survivor carries the same reweighted value w^(i)/pi_i = 1/c, so the reweighted total equals the pool total on every draw.",
+      "page": 6,
+      "quote": "we set each child particle's inclusion probability proportional to its weight, capped at one because a probability cannot exceed one",
+      "missing": false
+    },
+    {
+      "id": "pps",
+      "kind": "method",
+      "text": "pps((w^(i))_{i=1..N}, M), Fig. 2 lines 48-57: K <- {}; pi <- 0; loop: for i not in K set pi_i = (M - |K|) w^(i) / sum_{j not in K} w^(j); K' = {i not in K : pi_i >= 1}; if K' empty break; set pi_{K'} = 1; K <- K union K'. Return pi. Zero-weight children keep pi = 0 and are never drawn. Called with the twisted weights W.",
+      "page": 7,
+      "quote": "The recursion in pps (Fig. 2) finds the certainty sets, pins child particles whose inclusion probabilities reach one, and recurses on the others with the remaining sample size.",
+      "missing": false
+    },
+    {
+      "id": "systematic-pps-sampling",
+      "kind": "equation",
+      "text": "systematic(pi, M), Fig. 2 lines 58-62: draw a uniform random permutation phi of {1..N}; cumulative sums C_i = sum_{j<=i} pi_{phi(j)} for i = 0..N (C_0 = 0); draw one u ~ Uniform(0,1); return {phi(i) : exists integer k < M with C_{i-1} <= u + k < C_i}. Realizes exactly M draws with inclusion probabilities pi in O(N) (Madow, 1949); certainty particles (pi=1) are always selected.",
+      "page": 7,
+      "quote": "Any fixed-size draw with those inclusion probabilities qualifies, and systematic realizes them exactly in O(N) (Madow, 1949).",
+      "missing": false
+    },
+    {
+      "id": "pps-floating-point",
+      "kind": "method",
+      "text": "The paper does not say how to handle floating-point error in pps/systematic: sum(pi) may differ from M by rounding, and pi_i may land just below 1 for a particle that should be pinned.",
+      "page": 7,
+      "quote": "",
+      "missing": true,
+      "assumption": "Compute pi in float64; after pps, clip pi to [0,1]; in systematic use u + k for k = 0..M-1 against the cumulative sums and take exactly M (or m) indices via searchsorted on C (side='right'), rescaling C so that C_N = M exactly. Return exactly M distinct survivors whenever |I+| > M."
+    },
+    {
+      "id": "beam-swor-prune",
+      "kind": "method",
+      "text": "beam_swor(y, psi, M) = beam_summing(y, psi, swor_{M,psi}) (Fig. 2 lines 80-81). swor_{M,psi}(P'), lines 40-47: W^(i) = w^(i) psi(x^(i)) for each child (x^(i), w^(i)) in P'; I+ = {i : W^(i) > 0}; if |I+| <= M return {(x^(i), w^(i)) : i in I+}; else pi <- pps(W, M); S ~ systematic(pi, M); return {(x^(i), w^(i)/pi_i) : i in S}. Fixed cap of M particles per iteration. For almost-sure halting the fixed-M methods compose this prune with the tail-roulette decorator (with_tail_roulette(swor_{M,psi}, kappa), kappa = e^-30 for DNA). Z_hat accumulated as in beam-summing-z-hat.",
+      "page": 7,
+      "quote": "If the pool has more than M positive twisted weights, it hands them to pps (probabilities proportional to size) for the inclusion probabilities πi ∝ w(i) ψ(x(i))",
+      "missing": false
+    },
+    {
+      "id": "beam-swor-adaptive-prune",
+      "kind": "method",
+      "text": "beam_swor_adaptive(y, M, psi) = beam_summing(y, psi, swor_adaptive_{M,psi,rho}) (Fig. 2 lines 82-85). swor_adaptive(P', A), lines 63-79, with A replaced by the effective total A_{eps,t} (Eq. 17): W^(i) = w^(i) psi(x^(i)); W = sum_i W^(i); I+ = {i : W^(i) > 0}; if W = 0 return {}; mu = sum_i min(1, W^(i) M / (rho (A + W))); m = min(M, floor(mu + 1/2)); if m = 0: draw B ~ Bernoulli(mu); if B = 0 return {}; else m <- 1 and w^(i) <- w^(i)/mu for all i. If |I+| <= m return {(x^(i), w^(i)) : i in I+}; else pi <- pps(W, m) (twisted weights, unaffected by the 1/mu rescale), S ~ systematic(pi, m), return {(x^(i), w^(i)/pi_i) : i in S}. No tail-roulette decorator: the adaptive prune halts on its own (Prop. 3.4). As A grows within a call, m falls.",
+      "page": 7,
+      "quote": "swor_adaptive uses the mass accumulated so far to set the number of particles retained at each prune.",
+      "missing": false
+    },
+    {
+      "id": "beam-swor-adaptive-threshold",
+      "kind": "equation",
+      "text": "At every swor_adaptive call set c = M / (rho (A + W)) (Eq. 15), where A is the current-position running total (as A_{eps,t}), W the pool's total twisted weight and M the maximum particle count. 1/c = rho (A+W)/M is the per-particle twisted-weight threshold; rho in (0,1] controls the count; rho -> 0 recovers fixed-M swor.",
+      "page": 9,
+      "quote": "Here A is the current-position running total (Fig. 1), W is the pool's total twisted weight, and M is the maximum particle count.",
+      "missing": false
+    },
+    {
+      "id": "beam-swor-adaptive-count",
+      "kind": "equation",
+      "text": "Adaptive particle count: mu = sum_{i=1..N} min(1, c W^(i)) with W^(i) = w^(i) psi(x^(i)), and m = min(M, floor(mu + 1/2)) (Eq. 16), fixed before any randomness. pps then keeps exactly m particles, re-solving the constant to c' so every non-pinned survivor carries the shared weight 1/c'. Under the live twist mu <= (M/rho) W/(A+W).",
+      "page": 9,
+      "quote": "The resulting µ fixes the particle count m before sampling according to",
+      "missing": false
+    },
+    {
+      "id": "beam-swor-adaptive-roulette",
+      "kind": "equation",
+      "text": "Russian roulette when the pool counts for less than half a particle (mu < 1/2, so m = 0): draw B ~ Bernoulli(mu); if B = 0 return the empty pool; if B = 1 set m = 1 and replace every w^(i) by w^(i)/mu before a one-particle SWOR prune. Expected weight: mu * w/mu + (1-mu) * 0 = w, so Eq. 13 holds.",
+      "page": 23,
+      "quote": "It draws B ∼ Bernoulli(µ) and returns the empty pool if B = 0.",
+      "missing": false
+    },
+    {
+      "id": "effective-running-total",
+      "kind": "equation",
+      "text": "To guarantee halting even when A = 0, the count and threshold use A_{eps,t} = max{A, eps * Z_hat_{t-1}}, with Z_hat_0 = 1 and eps > 0 (Eq. 17). Applies only to the count/threshold of Eq. 15-16, never to the estimate. Z_hat_{t-1} is fixed before position t begins.",
+      "page": 10,
+      "quote": "This substitution applies only to the count and threshold in §3.1 and Eq. (15).",
+      "missing": false
+    },
+    {
+      "id": "epsilon-setting",
+      "kind": "parameter",
+      "text": "The experiments use eps = 0, i.e. A_{eps,t} = A. (setup.py has no eps field; use 0.)",
+      "page": 29,
+      "quote": "The experiments use ϵ = 0.",
+      "missing": false
+    },
+    {
+      "id": "expected-weight-preservation",
+      "kind": "equation",
+      "text": "Requirement on every prune: E_{P~ ~ prune(P',...)}[w_{P~}(x)] = w_{P'}(x) for every source prefix x, where w_P(x) = sum_{(x',w) in P} w 1{x'=x} (Eq. 13). The expectation is over the prune's internal randomness only, with P' and A fixed.",
+      "page": 8,
+      "quote": "The expectation in Eq. (13) is only over the prune's internal randomness, with all its inputs, including P′ and A, held fixed.",
+      "missing": false
+    },
+    {
+      "id": "lemma-3-2",
+      "kind": "result",
+      "text": "Lemma 3.2: with any prune satisfying Eq. 13, at every iteration i and source prefix x, E[w_{P_i}(x)] = w_{P_i-bar}(x), the weight in the prune-free reference run (Eq. 14).",
+      "page": 8,
+      "quote": "Lemma 3.2 (Pruning preserves the unpruned pool weights in expectation).",
+      "missing": false
+    },
+    {
+      "id": "theorem-3-3-unbiasedness",
+      "kind": "result",
+      "text": "Theorem 3.3: for a nonempty target y, beam_summing with a twist is unbiased, E[Z_hat_{|y|}] = p_Y->(y), if (1) every prune satisfies Eq. 13 and (2) the run halts almost surely. swor meets (1) by the HT identity; with the tail-roulette prune it also halts a.s.; prune_M and prune_tau violate (1) (biased). Proof in App. B.1 (pp. 21-22).",
+      "page": 8,
+      "quote": "Then E[Ẑ|y|] = p⃗Y(y).",
+      "missing": false
+    },
+    {
+      "id": "prop-3-4-adaptive",
+      "kind": "result",
+      "text": "Proposition 3.4: for integer M, twist psi, rho in (0,1], eps > 0, beam_swor_adaptive using A_{eps,t} satisfies Eq. 13 at every prune (I) and, under psi = is_live, halts almost surely (II); hence E[Z_hat_t] = p_Y->(y_{<=t}) at every position. (App. C notes that with eps = 0 the proof still applies for finite-context sources and finite-state transducers with full support, since A becomes positive almost surely.)",
+      "page": 10,
+      "quote": "Consequently, under the live twist, E[Ẑt] = p⃗Y(y≤t) at every position.",
+      "missing": false
+    },
+    {
+      "id": "smc-simple",
+      "kind": "method",
+      "text": "smc_simple(q, phi, M), Fig. 10 lines 86-99 (App. B.3): a textbook particle filter over the whole target y (no recursion over target positions). R <- {}; P <- M copies of (eps, 1/M). While P nonempty: P' <- {}; for each (x, w) in P: sample x' ~ q(.|x) from the precover-restricted proposal (Eq. 33 with t = |y|, which can draw EOS only at member prefixes); w <- w * p_X->(x'|x) / q(x'|x) (Eq. 27); if x' = EOS: R.add((x, w * phi(x))) with potential phi(x) = is_member(x, y); else P'.add((x x', w)). Then P <- resample(P') (ESS-gated multinomial, lines 100-105). Return Z_hat = sum_{(x,w) in R} w. Particles are never replenished, so the pool shrinks as particles complete. Under the live twist the weight factor for every draw (symbol or EOS) equals nu(x) of Eq. 33. Same tail-roulette decorator (kappa) as the other fixed-M methods.",
+      "page": 20,
+      "quote": "M particles extend one symbol at a time under the proposal, with the incremental weights of Eq. (27), finish with the potential factor at EOS",
+      "missing": false
+    },
+    {
+      "id": "smc-simple-weight-update",
+      "kind": "equation",
+      "text": "Sequential importance sampling: x' ~ q(.|x), w <- w * p_X->(x'|x) / q(x'|x) (Eq. 27). For one particle without resampling the weight is (1/M) w(x) with w(x) = phi(x) p_X->(EOS|x)/q(EOS|x) prod_s p_X->(x_s|x_<s)/q(x_s|x_<s) = phi(x) p_X(x)/q(x) (Eq. 28). Support condition: phi(x) p_X(x) > 0 implies q(x) > 0 (Eq. 29). Estimand Z = sum_x p_X(x) phi(x) with phi = is_member(., y) (Eq. 26).",
+      "page": 24,
+      "quote": "correcting for it by multiplying its weight by the ratio of source to proposal conditionals",
+      "missing": false
+    },
+    {
+      "id": "smc-simple-z-hat",
+      "kind": "equation",
+      "text": "smc_simple accumulates Z_hat only from completed particles: a particle that draws EOS leaves the pool and its weight times the potential is added; Z_hat = sum_{(x,w) in R} w (Fig. 10 line 99). Without resampling this is (1/M) sum_m w(x^(m)).",
+      "page": 24,
+      "quote": "A particle that draws EOS is completed: it leaves the pool, and its weight, multiplied by the potential, is added to the estimate Ẑ",
+      "missing": false
+    },
+    {
+      "id": "smc-simple-cylinder-completion",
+      "kind": "method",
+      "text": "Fig. 10 stops a particle only when it samples EOS; it has no cylinder check. In the worst case of setup.py the source never emits EOS (UNIFORM has p(EOS|x) = 0 everywhere), so q(EOS|x) = 0, the weight stays constant once the prefix covers y, the tail roulette never fires, and smc_simple as written never halts. The paper's App. E source instead puts all mass on strings of length exactly 3T.",
+      "page": 20,
+      "quote": "",
+      "missing": true,
+      "assumption": "When a particle's prefix x satisfies is_cylinder(x, y), complete it immediately: R.add((x, w)) and drop it from the pool. Every completion of a cylinder has potential 1 and, under the live twist, the particle's weight would never change again (nu(x) = 1), so this is the exact conditional value of the rest of its run and Z_hat stays unbiased. Apply it in both cases so the method is one algorithm; in the bigram case it only changes which particles share later resampling steps and saves ~500 extension steps per particle (stop prob 0.002). Keep EOS sampling at member non-cylinder prefixes (none exist with the codon transducer)."
+    },
+    {
+      "id": "smc-rb-proposal",
+      "kind": "equation",
+      "text": "Twisted live mass lambda_t(x) = sum_{x'' in A(x)} p_X->(x''|x) psi_t(x x'') (Eq. 32). Twisted proposal q_t(x'|x) = p_X->(x'|x) psi_t(x x') / nu_t(x), q_t(EOS|x) = 1{is_member(x, y<=t)} p_X->(EOS|x) / nu_t(x), with normalizer nu_t(x) = 1{is_member(x, y<=t)} p_X->(EOS|x) + sum_{x'' in A(x)} p_X->(x''|x) psi_t(x x'') (Eq. 33). Under the live twist lambda_t is the raw conditional probability of the live set. Intermediate target mu_t(x) = p_X->(x) psi_t(x) (Eq. 31). smc_simple uses the same live-set restriction (with t = |y|).",
+      "page": 25,
+      "quote": "The proposal distribution draws the next symbol with probability proportional to p⃗X(x′ | x) ψt(xx′),",
+      "missing": false
+    },
+    {
+      "id": "smc-rb-weight-update",
+      "kind": "equation",
+      "text": "smc_rb source step: x' ~ q_t(.|x) conditioned on a live symbol, i.e. x' ~ p_X->(.|x) psi(x .)/lambda(x), and (x, w) <- (x x', w * lambda(x)/psi(x x')) (Fig. 12 lines 128-132; Eq. 36 with the EOS branch marginalized). Under the live twist w^(m) <- w^(m) * lambda(x^(m)) (Eq. 38): the sampled child's weight equals the sum of the weights of its parent's live children. Target step factor psi_t(x)/psi_{t-1}(x) (Eq. 34) is 1 for a quotient particle that stays live and 0 otherwise (then lambda = 0 and it is dropped).",
+      "page": 26,
+      "quote": "The sampled particle's weight therefore equals the sum of the weights of its parent's live children.",
+      "missing": false
+    },
+    {
+      "id": "smc-rb",
+      "kind": "method",
+      "text": "smc_rb(y, M, psi, prune), Fig. 12 lines 106-135: same recursion over target prefixes as beam_summing, but each particle samples one live child instead of all. N = |y|. If N = 0: Q' = M copies of (eps, 1/M), R' = {}, Z_hat = []. Else recurse on y_{<N}; P <- Queue(Q'); Q, R <- {}; A <- 0; remainder re-check of R' exactly as beam_summing. While P nonempty: P' <- {}; for each (x, w) in P: if is_cylinder(x, y): Q.add((x,w)); A += w; continue. If is_member(x, y): R.add((x, w * p(EOS|x))); A += w * p(EOS|x) (stop branch added directly, Rao-Blackwellized). lambda <- sum_{x' in X} p(x'|x) psi(x x'); if lambda = 0: continue (drop). Sample x' ~ p(.|x) psi(x .)/lambda; P'.add((x x', w * lambda/psi(x x'))). Then P <- prune(P', A) where prune = resample_{psi,eta} (lines 136-143) wrapped by the tail-roulette decorator (kappa = e^-30 for DNA). Append A to Z_hat when the pool empties. Estimate = last Z_hat.",
+      "page": 27,
+      "quote": "The smc_rb algorithm and ESS-gated multinomial resampling under a twist.",
+      "missing": false
+    },
+    {
+      "id": "ess",
+      "kind": "equation",
+      "text": "Effective sample size ESS = (sum_m w^(m))^2 / sum_m (w^(m))^2 over the |P| particles of the pool (Eq. 30).",
+      "page": 25,
+      "quote": "When it falls below η|P| (§A), for a fixed 0 < η < 1, resample redraws the pool with replacement proportionally to weight",
+      "missing": false
+    },
+    {
+      "id": "ess-gated-multinomial-resample",
+      "kind": "equation",
+      "text": "resample (Fig. 10 lines 100-105, untwisted): if |P| = 0 return {}; if ESS(P) >= eta |P| return P unchanged; else draw j_1..j_|P| iid ~ Categorical(w^(i)/sum_i w^(i)) and return {(x^(j_k), sum_i w^(i)/|P|)}: same pool size, every weight reset to the mean. Twisted version resample_{psi,eta} (Fig. 12 lines 136-143): W^(i) = w^(i) psi(x^(i)); V = sum_i W^(i); N = |P'|; if V^2 >= eta N sum_i (W^(i))^2 return P'; else j_1..j_N iid ~ Categorical(W^(i)/V), return {(x^(j_n), V w^(j_n) / (N W^(j_n)))}. Identical under the live twist. Resampled copies inherit w0 for tail roulette. Satisfies Eq. 13 (Chopin & Papaspiliopoulos 2020, Prop. 16.3; stated on p. 28).",
+      "page": 20,
+      "quote": "resample is an ESS-gated multinomial resample (Eq. (30)) that samples with replacement and resets weights to their mean.",
+      "missing": false
+    },
+    {
+      "id": "prop-b1-smc-rb-unbiased",
+      "kind": "result",
+      "text": "Proposition B.1: smc_rb with a twist is unbiased, E[Z_hat_{|y|}] = p_Y->(y), when every prune satisfies Eq. 13 and the run halts a.s. smc_simple is unbiased by the standard SIS argument when Eq. 29 holds and the run halts a.s. (App. B.3).",
+      "page": 27,
+      "quote": "Then E[Ẑ|y|] = p⃗Y(y).",
+      "missing": false
+    },
+    {
+      "id": "smc-simple-unbiased",
+      "kind": "result",
+      "text": "smc_simple remains unbiased with multinomial resampling when the support condition Eq. 29 holds and the run halts almost surely.",
+      "page": 25,
+      "quote": "Since multinomial resampling with replacement preserves weighted sums in conditional expectation, smc_simple remains unbiased.",
+      "missing": false
+    },
+    {
+      "id": "tail-roulette",
+      "kind": "method",
+      "text": "with_tail_roulette(prune, kappa), Fig. 13 lines 144-158. Each particle is a triple (x, w, w0). At the start of each target-prefix call set w0 = w for every particle in P_1; every child and every resampled/HT-surviving copy inherits its parent's w0. decorated(P', ...): P <- prune(P', ...); P~ <- {}; for each (x, w, w0) in P: if w = 0: skip; if w >= kappa w0: keep unchanged; else draw b ~ Bernoulli(1/2): if b = 1 keep (x, 2w, w0), else drop. Return P~. Applied to the fixed-M methods (beam_swor, smc_simple, smc_rb); not to beam_swor_adaptive.",
+      "page": 28,
+      "quote": "The decorator in Fig. 13 independently removes each sufficiently light particle with probability 1/2 and doubles its weight otherwise.",
+      "missing": false
+    },
+    {
+      "id": "tail-roulette-for-beam-summing",
+      "kind": "method",
+      "text": "The paper says the fixed-M methods of Tab. 1 compose their prune with the tail roulette and its halting analysis covers prune_M, but it never states whether the beam_summing + prune_M baseline (or beam_summing + prune_tau) is run with the decorator.",
+      "page": 8,
+      "quote": "",
+      "missing": true,
+      "assumption": "Run beam_summing (prune_M and prune_tau) without the decorator so it stays deterministic, matching Fig. 1 and the 'beam search' framing. In this setup it never matters: each target-prefix call extends a particle at most 3 source symbols before it becomes a cylinder, so weights never fall below e^-30 w0."
+    },
+    {
+      "id": "tail-roulette-halting",
+      "kind": "result",
+      "text": "The decorator preserves expected weight (a selected particle contributes 2w with prob. 1/2) and makes every fixed-M method halt almost surely for any kappa in (0,1) (Eq. 42-46): E[W_i] -> 0 while delta_min = kappa min w0 > 0, so the pool empties with probability one.",
+      "page": 29,
+      "quote": "A call using the decorated prune thus halts almost surely.",
+      "missing": false
+    },
+    {
+      "id": "kappa-dna",
+      "kind": "parameter",
+      "text": "Tail-roulette threshold kappa = e^-30 for the DNA (and MECO) experiments; kappa = e^-15 for WikiText. beam_swor_adaptive does not use the decorator. setup.kappa = exp(-30).",
+      "page": 29,
+      "quote": "We use κ = e−15 for the WikiText experiments and κ = e−30 for the DNA and MECO experiments.",
+      "missing": false
+    },
+    {
+      "id": "eta-default",
+      "kind": "parameter",
+      "text": "ESS resampling threshold eta = 0.5 is the default (App. C sweeps 0.25, 0.5, 0.75 on the bigram text corpus). setup.eta = 0.5. The paper states the eta default for smc_rb; the same ESS gate is used by smc_simple's resample (Fig. 10), with no separate value given, so use 0.5 for both.",
+      "page": 30,
+      "quote": "to 7.86 at the default η=0.5 and 9.8 at η=0.75.",
+      "missing": false
+    },
+    {
+      "id": "tau-dna",
+      "kind": "parameter",
+      "text": "Threshold for prune_tau in the DNA validation and scaling comparisons: tau = 1e-3. setup.tau = 1e-3.",
+      "page": 14,
+      "quote": "In both the validation and scaling comparisons, beam_summing uses pruneτ with τ = 10−3.",
+      "missing": false
+    },
+    {
+      "id": "rho-default",
+      "kind": "parameter",
+      "text": "beam_swor_adaptive uses rho = 0.1 in all reported DNA results (Fig. 9a, 9b, Table 2). setup.rho = 0.1.",
+      "page": 14,
+      "quote": "while beam_swor_adaptive (ρ=0.1, M=256) reaches position 200 in about five seconds.",
+      "missing": false
+    },
+    {
+      "id": "m-table2-dna",
+      "kind": "parameter",
+      "text": "Table 2: eight seeds; maximum particle counts 2000 (bigram text), 200 (GPT-2) and 256 (DNA), except beam_swor_adaptive on the bigram text corpus (M=8000, mean live count 251).",
+      "page": 14,
+      "quote": "Reported values use eight seeds and maximum particle counts of 2000, 200, and 256, respectively",
+      "missing": false
+    },
+    {
+      "id": "seeds-fig9a",
+      "kind": "parameter",
+      "text": "Fig. 9(a): relative RMSE over 64 seeds and three targets, with 95% bootstrap intervals. setup bigram case: seeds 0..63, three targets.",
+      "page": 14,
+      "quote": "Relative RMSE against exact values over 64 seeds and three targets, with 95% bootstrap intervals.",
+      "missing": false
+    },
+    {
+      "id": "m-grid-fig9a",
+      "kind": "parameter",
+      "text": "The text does not list the particle budgets plotted in Fig. 9(a); the axis is labelled 'particle budget M' with ticks 16, 64, 256, 1024 and roughly eight points per curve (apparently powers of two from 16 to about 2048).",
+      "page": 14,
+      "quote": "",
+      "missing": true,
+      "assumption": "Use setup.m_values = (16, 64, 256): three points inside the plotted range including the Table 2 value M = 256. Enough to test that error falls with M."
+    },
+    {
+      "id": "m-meaning-per-method",
+      "kind": "parameter",
+      "text": "Table 1 gives the particle-count column: beam_summing (no prune) unbounded; + prune_M fixed M; + prune_tau mass-set (no M); smc_simple and smc_rb fixed M (M initial particles of weight 1/M); beam_swor fixed M (cap per prune); beam_swor_adaptive adaptive m <= M ('nominal' M). The paper does not say what to report for prune_tau at a given M.",
+      "page": 6,
+      "quote": "",
+      "missing": true,
+      "assumption": "beam_summing with prune_tau ignores M: run it once per target and copy the value into every M and seed slot (Fig. 9a draws it as a flat line). For prune_M, M is the beam width. For smc_simple/smc_rb, M is the initial particle count (pool size is never increased; resampling keeps the current size). For beam_swor M caps survivors per prune; for beam_swor_adaptive it is the maximum in Eq. 16."
+    },
+    {
+      "id": "rng-and-seeds",
+      "kind": "parameter",
+      "text": "The paper reports results over S seeds (8 for Table 2, 64 for Fig. 9a) but does not describe its random number generator, how seeds map to runs, or whether runs for different M or targets share randomness.",
+      "page": 11,
+      "quote": "",
+      "missing": true,
+      "assumption": "One independent run per (target i, M index j, seed k) drawing all randomness from setup.rng(i, j, k) (numpy default_rng([seed, i, j])). Deterministic methods (beam_summing) fill every seed slot with the same value. For systematic sampling draw the permutation and u from that generator; for Bernoulli/categorical draws likewise."
+    },
+    {
+      "id": "empty-pool-handling",
+      "kind": "boundary_condition",
+      "text": "The paper does not say what an implementation should do when every particle dies (a prune or roulette empties the pool before any quotient mass is collected, or a later target-prefix call starts from an empty quotient). Figs. 7-8 only say a failed GPT-2 run contributes Z_hat_s = 0 to the seed average.",
+      "page": 13,
+      "quote": "",
+      "missing": true,
+      "assumption": "Follow the pseudocode literally: an empty Q' gives an empty starting pool, the while loop does not run, A = 0 (plus any re-checked remainder mass), and the recursion continues to |y|. A final Z_hat of 0 is reported as log_z = -inf (never NaN); the seed average then includes a zero, as in Figs. 7-8. Particles with nu(x) = 0 or lambda(x) = 0 are dropped (Fig. 12 line 129)."
+    },
+    {
+      "id": "failed-run-zero",
+      "kind": "boundary_condition",
+      "text": "In reporting, a failed run (no surviving mass) contributes Z_hat_s = 0 to the seed average.",
+      "page": 13,
+      "quote": "computed from all 32 seeds with a failed run contributing Ẑ = 0.",
+      "missing": false
+    },
+    {
+      "id": "reporting-log-mean",
+      "kind": "equation",
+      "text": "Over S seeds report log((1/S) sum_s Z_hat_s), not the mean of logs (which estimates E[log Z_hat] <= log Z, a downward bias by Jensen). Between-seed standard deviations of log Z_hat are reported alongside comparisons; particle counts are reported as mean live particles.",
+      "page": 11,
+      "quote": "Over S seeds we report the log of the averaged estimate, log((1/S) ∑S s=1 Ẑs).",
+      "missing": false
+    },
+    {
+      "id": "relative-rmse",
+      "kind": "equation",
+      "text": "Relative root-mean-square error across seeds: RMSE[Z_hat/Z] = sqrt(S^-1 sum_{s=1..S} (Z_hat_s/Z - 1)^2). Used in Fig. 6 and Fig. 9(a).",
+      "page": 12,
+      "quote": "using the relative root-mean-square error across seeds",
+      "missing": false
+    },
+    {
+      "id": "exact-path-sum",
+      "kind": "method",
+      "text": "Exact ground truth for bigram sources (App. D): compose the source WFSA with the transducer; backward weights beta = (I - T)^-1 f (Eq. 47); forward weights alpha_t(s) over paths emitting y_{<=t}; p_Y->(y_{<=t}) = alpha_t^T beta (Eq. 48). For DNA the paper says exact values come from brute-force enumeration of the precover. measure.py implements a codon-level forward sum (state = last base) and implementers must not reimplement it.",
+      "page": 30,
+      "quote": "Summing over the states reached after emitting yt gives",
+      "missing": false
+    },
+    {
+      "id": "dna-training-corpus",
+      "kind": "parameter",
+      "text": "The DNA bigram source p_bigram for f_dna2aa is trained on 'the DNA training corpus', which is not named, and its probabilities (including stop probabilities) are not given. p_dna is a GPT-2 model trained on human DNA (Snæbjarnarson et al. 2026).",
+      "page": 14,
+      "quote": "",
+      "missing": true,
+      "assumption": "Use setup.BIGRAM, a hand-set high-entropy, A/T-rich, CpG-depleted bigram over ACGT with start row (.30,.20,.20,.30, no stop) and stop probability 0.002 after every base. It is a stand-in, so Table 2's DNA numbers are not reproducible; we test the claims (unbiased, error falls with M, beam_summing is a lower bound). p_dna (GPT-2 on DNA) is not covered."
+    },
+    {
+      "id": "dna-targets",
+      "kind": "parameter",
+      "text": "The amino-acid targets of the DNA experiments are not listed: Fig. 9(a) uses 'three targets', Table 2 'the amino-acid target for DNA', Fig. 9(b) runs to position 200. Their strings and lengths are not given.",
+      "page": 14,
+      "quote": "",
+      "missing": true,
+      "assumption": "Use setup's three length-10 targets MVHLTPEEKS, MALWMRLLPL, MKTAYIAKQR (protein N-termini, chosen by us). Length 10 keeps beam_summing with prune_tau tractable (the paper reports it exceeding five minutes at position 13). Fig. 9(b)'s walltime scaling is not reproduced."
+    },
+    {
+      "id": "f-dna2aa-definition",
+      "kind": "equation",
+      "text": "f_dna2aa maps DNA strings over a four-letter alphabet to amino-acid strings, each amino acid being the image of several codons. The paper does not give the codon table, reading frame, handling of stop codons, or what a trailing partial codon emits.",
+      "page": 14,
+      "quote": "",
+      "missing": true,
+      "assumption": "setup.CodonTransducer: standard genetic code, frame 0, codons read left to right; each complete codon emits one amino acid; the three stop codons (TAA, TAG, TGA) emit '*' and do not terminate the output; a trailing partial codon emits nothing. is_member(x,y) = output(x) starts with y; is_cylinder = is_member; is_live also accepts a partial final codon that some codon for the next target symbol extends."
+    },
+    {
+      "id": "worst-case-source",
+      "kind": "parameter",
+      "text": "App. E worst case: uniform source p_X(x) = (1/4)^{3T} over source strings of length 3T, target of length T in which each symbol is the image of d codons; repeated isoleucine with d = 3 (codons differ only in their final base), T = 100. Exactly d^T strings in the support are in the precover.",
+      "page": 30,
+      "quote": "Consider a uniform source model pX(x) = (1/4)^3T over source strings of length 3T on a four-symbol alphabet, and a target of length T",
+      "missing": false
+    },
+    {
+      "id": "worst-case-source-stop",
+      "kind": "parameter",
+      "text": "App. E's source puts all mass on strings of length exactly 3T (so it stops with probability one after 3T symbols), but the paper does not spell out the stop rule as a next-symbol model.",
+      "page": 30,
+      "quote": "",
+      "missing": true,
+      "assumption": "setup.UNIFORM gives 1/4 per base and p(EOS|x) = 0 for every prefix (it never stops). Prefix probabilities, and hence Z = 3^100 4^-300, are the same as the paper's length-3T source, and beam_summing/beam_swor/beam_swor_adaptive/smc_rb are unaffected (cylinders end every branch). smc_simple must use the cylinder completion of smc-simple-cylinder-completion to halt."
+    },
+    {
+      "id": "worst-case-closed-form",
+      "kind": "equation",
+      "text": "Worst-case exact value: p_Y(y) = d^T (1/4)^{3T}; with d = 3, T = 100 this is 3^100 4^-300.",
+      "page": 30,
+      "quote": "Exactly d^T strings in the source model's support belong to the precover, so pY(y) = d^T · (1/4)^3T.",
+      "missing": false
+    },
+    {
+      "id": "appendix-e-eq49-beam",
+      "kind": "result",
+      "text": "Standard beam search (beam_summing + prune_M) retains at most M of the d^T covering strings: Z_hat_beam <= M (1/4)^{3T} and Z_hat_beam / p_Y(y) <= M/d^T (Eq. 49). The ratio vanishes exponentially in T; recovering all mass needs M = 3^100 ≈ 5e47; biased for any M < d^T. (Our measure uses the equality min(M, d^T) 4^-3T, which holds here because all covering particles have equal weight and the prune is applied after each source extension.)",
+      "page": 30,
+      "quote": "This ratio vanishes exponentially in T. For T = 100 and d = 3, the smallest beam that recovers all the mass has M = 3^100 ≈ 5×10^47.",
+      "missing": false
+    },
+    {
+      "id": "appendix-e-eq50-exact",
+      "kind": "result",
+      "text": "smc_simple and smc_rb are exact for any M in the worst case: the live proposal samples each of the d codons with probability 1/d, each codon's importance weight gains d/4^3, so after T amino acids every particle carries w^(m) = (1/M) d^T/4^{3T} = p_Y(y)/M (Eq. 50) and Z_hat = sum_m w^(m) = p_Y(y) with zero variance. Fixed-M beam_swor is also exact: child weights are equal at every branch and the without-replacement reweighting preserves their total on every draw. The paper makes no worst-case claim for beam_swor_adaptive beyond unbiasedness.",
+      "page": 31,
+      "quote": "Thus smc_simple and smc_rb both have zero variance. Fixed-M beam_swor is also exact.",
+      "missing": false
+    },
+    {
+      "id": "beam-summing-lower-bound",
+      "kind": "result",
+      "text": "Threshold-pruned beam summing only discards mass, so it returns a lower bound on p_Y->(y) with unknown error (deterministic; same value every run). In Fig. 9(a) its error with prune_tau stays fixed as M grows.",
+      "page": 1,
+      "quote": "This produces a lower bound with unknown error.",
+      "missing": false
+    },
+    {
+      "id": "table-2",
+      "kind": "result",
+      "text": "Table 2, between-seed std (nats) of log Z_hat, 8 seeds. Columns p_bigram∘f_ptb (ten-paragraph WikiText-2 total, M=2000), p_gpt2∘f_ptb (first paragraph, M=200), p_bigram∘f_dna2aa (amino-acid target, M=256). smc_simple: 9.78 / — / 0.111. smc_rb: 7.86 / 3.23 / 0.107. beam_swor: 0.170 / 0.395 / 0.062. beam_swor_adaptive (rho=0.1): 0.200 / 0.199 / 0.062 (bigram text: M=8000, mean live 251). smc_simple GPT-2 covered only 120/850 bytes.",
+      "page": 14,
+      "quote": "Table 2: Between-seed standard deviation, in nats, of each estimator's log probability estimate log Ẑ.",
+      "missing": false
+    },
+    {
+      "id": "table-2-dna-column",
+      "kind": "result",
+      "text": "DNA column of Table 2 (p_bigram∘f_dna2aa, M=256, 8 seeds): smc_simple 0.111, smc_rb 0.107, beam_swor 0.062, beam_swor_adaptive 0.062. Ordering: SWOR methods well below SMC; smc_rb only modestly below smc_simple; adaptive identical to swor on DNA because swor_adaptive retains the same number of particles. Not reproducible here (stand-in source and targets); ordering only.",
+      "page": 14,
+      "quote": "identical results on DNA, where swor_adaptive retains the same number of particles as swor (Tab. 2 and Fig. 8).",
+      "missing": false
+    },
+    {
+      "id": "fig-9a",
+      "kind": "result",
+      "text": "Fig. 9(a): relative RMSE[Z_hat/Z] against exact values vs particle budget M (16 .. ~2048), 64 seeds, three targets, for p_bigram∘f_dna2aa and p_dna∘f_dna2aa. beam_swor_adaptive (rho=0.1) error decreases faster with M than smc_rb and is below it at every M; beam_summing with prune_tau (tau=1e-3) has fixed error (flat dashed line, around 1e-1 on the bigram panel). The paper plots only beam_swor_adaptive, smc_rb and beam_summing here.",
+      "page": 14,
+      "quote": "The error of beam_swor_adaptive decreases faster with M than that of smc_rb, while beam_summing with pruneτ has fixed error.",
+      "missing": false
+    },
+    {
+      "id": "fig-9b",
+      "kind": "result",
+      "text": "Fig. 9(b): cumulative walltime per amino-acid position for the bigram model. beam_summing with prune_tau (tau=1e-3) grows rapidly and exceeds five minutes at position 13; beam_swor_adaptive (rho=0.1, M=256) scales about linearly and reaches position 200 in about five seconds. Not reproduced (setup targets have length 10).",
+      "page": 14,
+      "quote": "beam_summing with pruneτ exceeds five minutes at position 13, while beam_swor_adaptive (ρ=0.1, M=256) reaches position 200 in about five seconds.",
+      "missing": false
+    },
+    {
+      "id": "smc-rb-vs-simple-dna",
+      "kind": "result",
+      "text": "§4.4: marginalizing the EOS decision (smc_simple vs smc_rb) reduces variance only modestly; the large reduction comes between smc_rb and beam_swor (all-child extension plus SWOR pruning).",
+      "page": 14,
+      "quote": "Marginalizing the EOS decision rather than sampling it (smc_simple versus smc_rb) reduces variance only modestly.",
+      "missing": false
+    }
+  ]
+}
