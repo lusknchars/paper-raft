@@ -91,32 +91,36 @@ function compareView(study) {
 
     const grid = el("div", { class: "charts" });
     body.append(grid);
-    for (const key of ok.length ? Object.keys(ok[0].run.results.samples) : []) {
+    // Methods graded against different claims report different keys: show the union, each method where it has data.
+    const union = (pick) => [...new Set(ok.flatMap((r) => Object.keys(pick(r.run.results) || {})))];
+    for (const key of union((res) => res.samples)) {
+      const has = ok.filter((r) => r.run.results.samples[key]);
       const canvas = el("canvas", { role: "img", "aria-label": `${key} by method against the paper` });
       grid.append(el("figure", {}, el("figcaption", {}, key), canvas));
-      const datasets = ok.map((r, i) => ({
-        label: r.m.name, data: r.run.results.samples[key].map(([x, y]) => ({ x, y })),
-        borderColor: COLORS[i % COLORS.length], backgroundColor: COLORS[i % COLORS.length],
-        showLine: true, pointRadius: 0, borderWidth: 1.5,
-      }));
-      const ref = ok[0].run.results.reference_samples?.[key];
+      const datasets = has.map((r) => {
+        const color = COLORS[ok.indexOf(r) % COLORS.length];
+        return { label: r.m.name, data: r.run.results.samples[key].map(([x, y]) => ({ x, y })),
+          borderColor: color, backgroundColor: color, showLine: true, pointRadius: 2, borderWidth: 1.5 };
+      });
+      const ref = has[0].run.results.reference_samples?.[key];
       if (ref) datasets.push({ label: "paper", data: ref.map(([x, y]) => ({ x, y })), borderColor: "#e6e6e6",
         backgroundColor: "#e6e6e6", showLine: false, pointRadius: 4, pointStyle: "crossRot" });
       charts.push(new Chart(canvas, { type: "scatter", data: { datasets },
         options: { animation: false, scales: { x: AXIS, y: AXIS }, plugins: { legend: { labels: { color: "#e6e6e6" } } } } }));
     }
 
-    const errKeys = ok.length ? Object.keys(ok[0].run.results.errors) : [];
+    const errKeys = union((res) => res.errors);
+    const tols = [...new Set(ok.map((r) => r.run.results.tolerance))];
     const tbody = el("tbody", {}, rows.map(({ m, run }) => {
       if (!run) return el("tr", {}, el("td", {}, m.name), el("td", { colspan: errKeys.length + 3, class: "muted" }, "no run"));
       const r = run.results;
       return el("tr", {}, el("td", {}, m.name),
         errKeys.map((k) => el("td", { class: "num" }, fmt(r.errors?.[k]))),
-        el("td", {}, r.status === "ok" ? (r.pass ? "yes" : "no") : "—"),
+        el("td", {}, r.status === "ok" ? (r.pass ? "yes" : "no") + (tols.length > 1 ? ` (≤ ${r.tolerance})` : "") : "—"),
         el("td", { class: "wrap" }, badge(run.status), r.reason ? " " + r.reason : ""),
         el("td", {}, el("button", { onclick: () => openDrawer(study, m, run) }, "provenance")));
     }));
-    const tol = ok[0]?.run.results.tolerance;
+    const tol = tols.length === 1 ? tols[0] : null;
     body.append(el("div", { class: "table-wrap" }, el("table", {},
       el("thead", {}, el("tr", {}, el("th", {}, "method"), errKeys.map((k) => el("th", {}, k)),
         el("th", {}, tol != null ? `≤ ${tol}` : "pass"), el("th", {}, "status"), el("th", {}, ""))), tbody)));
