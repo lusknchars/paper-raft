@@ -5,8 +5,8 @@
   "params": {
     "case": "worst"
   },
-  "inputs_hash": "f4ec78941b1b0f6302a0ecfe8f20a345e67e87296b3386cfd12e649b7ec3d091",
-  "git_sha": "6afa80e339ecb7c13030736f880fe764d512370e",
+  "inputs_hash": "959aa41a92b96d7a6e5cb181c2447003251484600454393eb7594767841a2ae6",
+  "git_sha": "20d58c2bd7aa7c7a7957961d39d7ba6403e17587",
   "method_sha": "6afa80e339ecb7c13030736f880fe764d512370e",
   "dirty": false,
   "python": "3.14.4",
@@ -15,7 +15,7 @@
     "scipy": "1.18.1"
   },
   "seed": 0,
-  "started_at": "2026-10-13T19:06:00+00:00",
-  "duration_s": 33.899,
+  "started_at": "2026-10-13T19:14:22+00:00",
+  "duration_s": 34.294,
   "repro_rtol": 1e-08
 }

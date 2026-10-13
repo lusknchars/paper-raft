@@ -5,8 +5,8 @@
   "params": {
     "case": "bigram"
   },
-  "inputs_hash": "bf2461a1dc12fbaf924156f88a7d3b0b59f1a6fb55e79308916be1cd0fd510f7",
-  "git_sha": "5b4e13b4a6cbe6493f6447541079eccacb64dfb7",
+  "inputs_hash": "08c019e14aaf97188a771b384154bbef92c28f76c42b97f18aaf08dc3fc8c495",
+  "git_sha": "20d58c2bd7aa7c7a7957961d39d7ba6403e17587",
   "method_sha": "5b4e13b4a6cbe6493f6447541079eccacb64dfb7",
   "dirty": false,
   "python": "3.14.4",
@@ -15,7 +15,7 @@
     "scipy": "1.18.1"
   },
   "seed": 0,
-  "started_at": "2026-10-13T19:03:02+00:00",
-  "duration_s": 2.016,
+  "started_at": "2026-10-13T19:11:24+00:00",
+  "duration_s": 1.957,
   "repro_rtol": 1e-08
 }
