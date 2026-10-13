@@ -1,0 +1,24 @@
+{
+  "name": "beam-swor-adaptive",
+  "implements": [
+    "beam-summing",
+    "empty-target-base-case",
+    "beam-summing-z-hat",
+    "twist-is-live",
+    "twist-is-live-all-experiments",
+    "ht-estimator",
+    "pps",
+    "systematic-pps-sampling",
+    "beam-swor-adaptive-prune",
+    "beam-swor-adaptive-threshold",
+    "beam-swor-adaptive-count",
+    "beam-swor-adaptive-roulette",
+    "effective-running-total",
+    "epsilon-setting",
+    "rho-default",
+    "expected-weight-preservation",
+    "prop-3-4-adaptive"
+  ],
+  "author_agent": "claude-code:implementer#beam-swor-adaptive",
+  "notes": "beam_summing (Fig. 1) with swor_adaptive (Fig. 2 lines 63-85) as its prune, psi = is_live, rho = setup.rho, M = setup.m_values[j], eps = setup.epsilon (= 0, epsilon-setting), so A_eps = max(A, eps * Z_hat_{t-1}) = A (effective-running-total; Z_hat_0 = 1). Choices the paper leaves open: (1) No tail-roulette decorator: App. B.6 'Settings' and kappa-dna/tail-roulette say beam_swor_adaptive does not use it, so setup.kappa is ignored. (2) pps-floating-point (missing): pps pins a particle when its pi >= 1 exactly; a rounding guard never pins more particles than free slots (only reachable through rounding). systematic draws the pinned particles deterministically and runs Madow systematic sampling over the non-pinned ones with the remaining slots; the cumulative sum is rescaled to end exactly at the slot count and the draw uses one uniform permutation (rng.permutation) of the non-pinned particles and one u = rng.random(). Removing unit-length pinned intervals shifts later systematic points by integers, so this is the same draw as Fig. 2 over all N. (3) Roulette coin: B = (rng.random() < mu). (4) Children with zero source probability (p(x'|x) = 0) are not created: they have zero twisted weight, are outside I+ and would be dropped by every branch of the prune. (5) A remainder entry is added only when p(EOS|x) > 0 (zero-mass-convention). With the genetic code is_cylinder = is_member, so the remainder is always empty here. (6) max_particles = the largest pool returned by any swor_adaptive call in the run (the starting pool {(eps,1)} and re-queued quotient pools are not prune outputs and are not counted). (7) empty-pool-handling (missing): an emptied pool simply ends the call; the next call starts from the quotient collected so far (possibly empty), and an estimate of 0 is reported as log_z = -inf. (8) rng-and-seeds (missing): entry [i,j,k] uses only setup.rng(i,j,k), consumed in algorithm order (roulette coin, then permutation, then u, per prune). (9) Black-box calls (next_probs, is_live, is_member, is_cylinder) are memoised in one cache per solve; this changes no number. (10) Weights are kept as float64 probabilities (smallest ~4^-300 ~ 1e-181, inside float64 range); no log-space arithmetic. Observation: with eps = 0 and the codon transducer, A stays 0 at every prune of a call (quotient mass arrives only after the last prune of the call), so m = min(M, round(mu)) with mu counting particles above rho*W/M fully; Russian roulette (m = 0) never triggers in these cases. It was exercised in dev checks with eps = 1."
+}

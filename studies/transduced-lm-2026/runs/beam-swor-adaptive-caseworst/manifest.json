@@ -1,0 +1,21 @@
+{
+  "run_id": "beam-swor-adaptive-caseworst",
+  "study": "transduced-lm-2026",
+  "method": "beam-swor-adaptive",
+  "params": {
+    "case": "worst"
+  },
+  "inputs_hash": "f4ec78941b1b0f6302a0ecfe8f20a345e67e87296b3386cfd12e649b7ec3d091",
+  "git_sha": "fa873449c368159d285549d0ac13fef7dd9aa3c4",
+  "method_sha": "fa873449c368159d285549d0ac13fef7dd9aa3c4",
+  "dirty": false,
+  "python": "3.14.4",
+  "packages": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1"
+  },
+  "seed": 0,
+  "started_at": "2026-10-13T19:05:47+00:00",
+  "duration_s": 50.122,
+  "repro_rtol": 1e-08
+}
