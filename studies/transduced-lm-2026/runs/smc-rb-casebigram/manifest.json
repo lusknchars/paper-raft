@@ -1,0 +1,21 @@
+{
+  "run_id": "smc-rb-casebigram",
+  "study": "transduced-lm-2026",
+  "method": "smc-rb",
+  "params": {
+    "case": "bigram"
+  },
+  "inputs_hash": "bf2461a1dc12fbaf924156f88a7d3b0b59f1a6fb55e79308916be1cd0fd510f7",
+  "git_sha": "34a258b2c63db64ff9f25e917af4342cb7e8f2d6",
+  "method_sha": "34a258b2c63db64ff9f25e917af4342cb7e8f2d6",
+  "dirty": false,
+  "python": "3.14.4",
+  "packages": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1"
+  },
+  "seed": 0,
+  "started_at": "2026-10-13T19:04:54+00:00",
+  "duration_s": 18.536,
+  "repro_rtol": 1e-08
+}

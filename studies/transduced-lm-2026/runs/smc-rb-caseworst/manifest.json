@@ -1,0 +1,21 @@
+{
+  "run_id": "smc-rb-caseworst",
+  "study": "transduced-lm-2026",
+  "method": "smc-rb",
+  "params": {
+    "case": "worst"
+  },
+  "inputs_hash": "f4ec78941b1b0f6302a0ecfe8f20a345e67e87296b3386cfd12e649b7ec3d091",
+  "git_sha": "34a258b2c63db64ff9f25e917af4342cb7e8f2d6",
+  "method_sha": "34a258b2c63db64ff9f25e917af4342cb7e8f2d6",
+  "dirty": false,
+  "python": "3.14.4",
+  "packages": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1"
+  },
+  "seed": 0,
+  "started_at": "2026-10-13T19:04:00+00:00",
+  "duration_s": 53.601,
+  "repro_rtol": 1e-08
+}
