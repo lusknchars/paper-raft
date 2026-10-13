@@ -162,6 +162,8 @@ def test_unbiased_claim():
     exact = np.broadcast_to(_exact(s)[:, None, None], _shape(s))
     r = _grade("bigram", "smc-rb", exact + 1e-13)
     assert not r["pass"] and r["errors"]["min_sd_log_z"] <= 1e-3  # computing the answer is not estimating it
+    fake = exact + np.random.default_rng(2).normal(0, 1e-4, size=_shape(s))
+    assert not _grade("bigram", "beam-swor", fake)["pass"]  # nor is the answer with a little noise added
 
 
 def test_unbiased_exact_up_to_rounding_passes_in_the_worst_case():
