@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use Paper Raft, please cite it as below."
+title: "Paper Raft"
+type: software
+license: Apache-2.0
+authors:
+  - family-names: Oliveira
+    given-names: Lucas
+repository-code: "https://github.com/lusknchars/paper-raft"
+references:
+  - type: article
+    title: "High-Re solutions for incompressible flow using the Navier–Stokes equations and a multigrid method"
+    authors:
+      - family-names: Ghia
+        given-names: U.
+      - family-names: Ghia
+        given-names: K. N.
+      - family-names: Shin
+        given-names: C. T.
+    journal: "Journal of Computational Physics"
+    volume: 48
+    issue: 3
+    start: 387
+    end: 411
+    year: 1982
+    doi: "10.1016/0021-9991(82)90058-4"
