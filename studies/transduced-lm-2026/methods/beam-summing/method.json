@@ -1,0 +1,19 @@
+{
+  "name": "beam-summing",
+  "implements": [
+    "beam-summing",
+    "beam-summing-z-hat",
+    "empty-target-base-case",
+    "prune-m",
+    "prune-tau",
+    "twist-is-live",
+    "twist-is-live-all-experiments",
+    "precover-predicates",
+    "zero-mass-convention",
+    "tau-dna",
+    "beam-summing-lower-bound",
+    "appendix-e-eq49-beam"
+  ],
+  "author_agent": "claude-code:implementer#beam-summing",
+  "notes": "Fig. 1 implemented literally, with the recursion over target prefixes unrolled into a loop t = 1..|y| (same order of calls; Z_hat_t = running total A of call t, Eq. 6; estimate = Z_hat_|y|). Base case: pool {(eps, 1)}, empty remainder (empty-target-base-case). Twist psi = is_live gates child creation (twist-is-live); children are created for every live symbol even if p(x'|x) = 0 (Fig. 1 line 23 tests only psi). Prune is applied after every pass over the pool, with the running total A passed and ignored (prune-m, prune-tau). prune-sort-ties (missing): sort_descending is a stable sort on -w, so equal weights keep pool order then A,C,G,T child order; prune_tau uses an exact float comparison cum_i >= (1 - tau) * cum_N on the stably sorted cumulative sum, k = first such i (i = N always qualifies). zero-mass-convention: a member's remainder summand is w * p(EOS|x), which is 0 when p(EOS|x) = 0 (the worst-case source). tail-roulette-for-beam-summing (missing): NOT applied; beam_summing with prune_M / prune_tau is the deterministic baseline of Fig. 1 and the decomposition is finite here (every live non-member prefix has length < 3|y|), so it halts without it; kappa is unused. Determinism: no RNG is drawn; every seed slot gets the same value. m-meaning-per-method (missing): with beam_prune 'tau' M is unused, one run per target fills every M slot; with 'top_m' M = setup.m_values[j]. max_particles = largest pool size returned by any prune call in the run (the initial pool of a call, built from the previous call's quotient, is not counted since it is not a prune output; for top_m it never exceeds M). Weights are float64 probabilities (smallest in the worst case ~4^-300 ~ 1e-181, within range). log_z = log(Z_hat) or -inf if Z_hat = 0. predicate-implementation (missing): predicates are called on the setup's transducer and cached per (prefix, target prefix); next_probs results cached per prefix. Self-checks (development only, not in solve): worst case matches Eq. 49 to 6e-14 nats, min(M, prod d_t) 4^-300 for both targets; with no prune, beam summing equals a brute-force codon-level sum for bigram targets of length 2-3 to 2e-16 relative; prune_tau estimates rise monotonically toward the unpruned value as tau falls (lower bound, beam-summing-lower-bound)."
+}
