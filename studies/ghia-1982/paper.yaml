@@ -1,0 +1,6 @@
+title: "High-Re solutions for incompressible flow using the Navier–Stokes equations and a multigrid method"
+authors: ["U. Ghia", "K. N. Ghia", "C. T. Shin"]
+citation: "Ghia, U., Ghia, K. N., & Shin, C. T. (1982). Journal of Computational Physics, 48(3), 387–411."
+doi: "10.1016/0021-9991(82)90058-4"
+pdf: "papers/ghia-1982.pdf"
+experiment: "Lid-driven square cavity, centreline velocity profiles (Tables I and II), Re = 100 on a 129×129 grid"
