@@ -119,3 +119,20 @@ Out of scope: the live agent feed / mission-control view; a guided "bring your o
 ## 10. Open-source hygiene
 
 README with the 3-command quickstart, a CONTRIBUTING guide on how to add a method and a study, CITATION.cff, attribution of Ghia et al. for the reference data, a code of conduct, and issue templates for "new study" and "reproduction failed".
+
+## 11. First study from the collection: transduced language models (amended 2026-10-13)
+
+The Ghia PDF did not arrive, so it is parked as a draft. At the owner's request, the first reproduced study comes from the papers already collected in the Paperraft briefs (`github.com/lusknchars/ai-radar`, live at `paperaft.vercel.app`). The chosen paper is Snæbjarnarson et al. (2026), *Stochastic Estimation of Transduced Language Models*, arXiv:2608.27428, CC BY-SA 4.0. Of the six candidates checked, it is the one that can be reproduced on a laptop CPU.
+
+- **Experiment.** DNA → amino-acid prefix probabilities (§4.3–4.4, Appendix E). There are five methods, one per agent: `beam_summing`, `smc_simple`, `smc_rb`, `beam_swor` and `beam_swor_adaptive`.
+- **Cases.**
+  - `worst`: Appendix E, a uniform source with the target isoleucine × 100. The answer is known in closed form.
+  - `bigram`: a stand-in DNA bigram and three length-10 targets, with exact answers from Appendix D path sums. This case is the headline result.
+- **Grading is by claim, per method** (`measure` takes the method name):
+  - `exact`, for the worst case
+  - `top_m_share`, for beam search in the worst case
+  - `unbiased`: within 4 standard errors over 64 seeds, and the error falls with M
+  - `lower_bound`, for prune_τ
+- **Display only.** Table 2's numbers come from the paper's own unnamed corpus and targets. They are shown for the ordering of methods and never graded.
+- **Honesty rule.** The study page states plainly what is not covered: the WikiText-2/PTB text experiments, GPT-2, and the paper's exact Table 2 values.
+- **Linking.** `paper.yaml` carries `brief_url`, and the results explorer links to the brief. The brief in ai-radar links back to the lab, through a pull request on that repo. Nothing is deployed to Vercel without the owner's consent.
