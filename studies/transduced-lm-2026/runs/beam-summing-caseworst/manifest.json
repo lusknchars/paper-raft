@@ -1,0 +1,21 @@
+{
+  "run_id": "beam-summing-caseworst",
+  "study": "transduced-lm-2026",
+  "method": "beam-summing",
+  "params": {
+    "case": "worst"
+  },
+  "inputs_hash": "f4ec78941b1b0f6302a0ecfe8f20a345e67e87296b3386cfd12e649b7ec3d091",
+  "git_sha": "5b4e13b4a6cbe6493f6447541079eccacb64dfb7",
+  "method_sha": "5b4e13b4a6cbe6493f6447541079eccacb64dfb7",
+  "dirty": false,
+  "python": "3.14.4",
+  "packages": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1"
+  },
+  "seed": 0,
+  "started_at": "2026-10-13T19:02:58+00:00",
+  "duration_s": 4.392,
+  "repro_rtol": 1e-08
+}
