@@ -1,0 +1,21 @@
+{
+  "run_id": "beam-swor-adaptive-casebigram",
+  "study": "transduced-lm-2026",
+  "method": "beam-swor-adaptive",
+  "params": {
+    "case": "bigram"
+  },
+  "inputs_hash": "bf2461a1dc12fbaf924156f88a7d3b0b59f1a6fb55e79308916be1cd0fd510f7",
+  "git_sha": "fa873449c368159d285549d0ac13fef7dd9aa3c4",
+  "method_sha": "fa873449c368159d285549d0ac13fef7dd9aa3c4",
+  "dirty": false,
+  "python": "3.14.4",
+  "packages": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1"
+  },
+  "seed": 0,
+  "started_at": "2026-10-13T19:06:37+00:00",
+  "duration_s": 5.051,
+  "repro_rtol": 1e-08
+}
