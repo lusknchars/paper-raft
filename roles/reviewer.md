@@ -4,8 +4,8 @@ You check one implementation against the paper. You did not write it, and you do
 
 **Read:** `{{study_dir}}/methods/{{method}}/solver.py`, its `method.json`, `{{study_dir}}/extraction.json`, `{{study_dir}}/problem/setup.py`, and the PDF at `{{pdf}}` wherever an extraction item is unclear.
 
-**For each extraction id in `implements`:** find the code that implements it and check it against the paper: equations, signs, boundary formulas, parameters. Also check that:
-- the interface in setup.py is honoured ([j, i] indexing, walls included, lid-speed units)
+**For each extraction id in `implements`:** find the code that implements it and check it against the paper: equations, signs, update rules, boundary formulas, parameters. Also check that:
+- the interface in the setup.py docstring is honoured (output shapes, units, indexing, how randomness is drawn)
 - there are no unexplained tuning constants
 - every assumption for a `missing` item is stated in `notes`
 
