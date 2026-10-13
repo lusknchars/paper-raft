@@ -1,0 +1,18 @@
+title: "Stochastic Estimation of Transduced Language Models"
+authors: ["Vésteinn Snæbjarnarson", "Samuel Kiegeland", "Manuel de Prada Corral", "Ryan Cotterell", "Tim Vieira"]
+citation: "Snæbjarnarson, V., Kiegeland, S., de Prada Corral, M., Cotterell, R., & Vieira, T. (2026). Stochastic Estimation of Transduced Language Models. arXiv:2608.27428."
+doi: "10.48550/arXiv.2608.27428"
+pdf: "papers/transduced-lm-2026.pdf"
+pdf_url: "https://arxiv.org/pdf/2608.27428v1"
+license: "CC BY-SA 4.0"
+brief_url: "https://paperaft.vercel.app/papers/2608.27428/"
+experiment: >-
+  Prefix probabilities of amino-acid strings under a DNA language model passed through the genetic code
+  (§4.3–4.4, Appendix E). Five estimators: beam_summing (the prior work's beam summing) and the four unbiased
+  estimators smc_simple, smc_rb, beam_swor and beam_swor_adaptive. Two cases. "worst": the uniform-source
+  genetic-code worst case of Appendix E, whose answer is known in closed form. "bigram": a DNA bigram model
+  with exact answers from path sums (Appendix D). The paper does not name its DNA corpus or list its targets,
+  so the bigram and the three targets here are stand-ins: we test the paper's claims (unbiased, error falls
+  with M, beam summing is a lower bound, exactness in the worst case), not its Table 2 numbers. The text
+  (WikiText-2 + PTB tokenizer) and GPT-2 experiments are not covered.
+draft: true  # until extraction from the PDF exists and the methods are reviewed

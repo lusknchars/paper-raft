@@ -1,0 +1,26 @@
+{
+  "citation": "Snæbjarnarson, Kiegeland, de Prada Corral, Cotterell & Vieira (2026). Stochastic Estimation of Transduced Language Models. arXiv:2608.27428. §3.3, §4.3–4.4, Appendix E, Table 2, Fig. 9(a).",
+  "doi": "10.48550/arXiv.2608.27428",
+  "tolerance": 1e-9,
+  "verified_against_pdf": false,
+  "cases": {
+    "worst": {
+      "section": "Appendix E", "page": null,
+      "aliases_per_symbol": 3,
+      "closed_form": "p_Y(y) = d^T (1/4)^(3T) with d = 3, T = 100; beam search with prune_M keeps M of the d^T covering strings (Eq. 49)",
+      "claims": {"smc_simple": "exact", "smc_rb": "exact", "beam_swor": "exact",
+                 "beam_swor_adaptive": "unbiased", "beam_summing": "top_m_share"},
+      "tolerance": {"exact": 1e-9, "top_m_share": 1e-9, "unbiased": 4.0}
+    },
+    "bigram": {
+      "section": "§4.3–4.4, Fig. 9(a), Table 2", "page": null,
+      "claims": {"smc_simple": "unbiased", "smc_rb": "unbiased", "beam_swor": "unbiased",
+                 "beam_swor_adaptive": "unbiased", "beam_summing": "lower_bound"},
+      "tolerance": {"unbiased": 4.0, "lower_bound": 1e-9},
+      "paper_table2_sd_log_z": {
+        "note": "Between-seed std of log Ẑ, 8 seeds, M = 256, the paper's own DNA bigram and amino-acid target (neither published). Shown for the ordering only; not graded.",
+        "smc_simple": 0.111, "smc_rb": 0.107, "beam_swor": 0.062, "beam_swor_adaptive": 0.062
+      }
+    }
+  }
+}
