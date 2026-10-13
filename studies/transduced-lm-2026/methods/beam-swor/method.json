@@ -1,0 +1,23 @@
+{
+  "name": "beam-swor",
+  "implements": [
+    "beam-summing",
+    "beam-summing-z-hat",
+    "empty-target-base-case",
+    "quotient-remainder-decomposition",
+    "precover-predicates",
+    "twist-is-live",
+    "twist-is-live-all-experiments",
+    "ht-estimator",
+    "swor-inclusion-probabilities",
+    "pps",
+    "systematic-pps-sampling",
+    "beam-swor-prune",
+    "expected-weight-preservation",
+    "tail-roulette",
+    "kappa-dna",
+    "zero-mass-convention"
+  ],
+  "author_agent": "claude-code:implementer#beam-swor",
+  "notes": "Algorithm: Fig. 1 beam_summing with prune = with_tail_roulette(swor_{M,psi}, kappa) (beam-swor-prune, tail-roulette), written iteratively over target prefixes t = 1..|y| (equivalent to the recursion; base case (eps, 1), empty-target-base-case). Within a call: remainder re-check of the previous R with is_member; for each pooled particle is_cylinder -> Q and A += w, continue; else is_member -> R gets w*p(EOS|x) and A += it, and the particle is still extended; children x x' are created for every x' in ACGT with is_live(x x', y<=t) (twist-is-live), weight w*p(x'|x), inheriting w0. Estimate = A of the call for the whole target (beam-summing-z-hat). Twist: psi = is_live, so every pooled child has psi = 1 and twisted weights equal raw weights; swor uses W = w. Zero-weight children (p(x'|x) = 0, e.g. at the 300-base cap of the worst-case source) are created as Fig. 1 line 23 says and then dropped by swor because they are not in I+ (zero-mass-convention). pps-floating-point (missing): a child is pinned to the certainty set when its computed pi >= 1 - 1e-12 and pi is then set to exactly 1; systematic sampling keeps all certain children and runs Madow's systematic design over the non-certain children in the same uniform random order with one u ~ U(0,1) (equivalent in exact arithmetic to Fig. 2 lines 58-62, because a length-one interval always holds exactly one point u + k); the cumulative sums are anchored to their exact total m - |K| and selections are counted as ceil(C_i - u) - ceil(C_{i-1} - u), so the sample size is exactly M on every draw. Survivor weights are w_i / pi_i (HT, ht-estimator). Tail roulette (App. B.6): w0 = w for every particle in the starting pool of each target-prefix call; children and HT survivors inherit w0; after each swor prune a particle with w < kappa*w0 is dropped with probability 1/2 or kept with weight 2w; kappa = setup.kappa (0 in the worst case, which disables it; e^-30 in the bigram case). The decorator is applied after every prune, including when swor keeps all children (|I+| <= M). Randomness (rng-and-seeds, missing): entry [i, j, k] uses only setup.rng(i, j, k), consumed in pool order: per prune one permutation and one uniform (only when |I+| > M), then one uniform per roulette coin. Empty pool (empty-pool-handling, missing): a call that collects nothing returns empty Q and R, later calls then start empty and the estimate is 0, reported as log_z = -inf (failed-run-zero). max_particles: the largest pool size after any prune (after the roulette) over all iterations of all target-prefix calls; the re-queued quotient pool at the start of a call is not a prune output and is not counted (it can exceed M, and is reduced to at most M by the first prune of the call). Weights are kept in linear float64 (smallest weights in these cases are about 4^-300 ~ 2e-181, well inside float64 range). Caching: source conditionals and predicate results are memoised by exact (prefix, target-prefix) strings, cleared when a cache exceeds 2e6 entries; this only avoids repeated calls and does not use the source's or transducer's internals. Deterministic: same setup gives the same numbers on rerun."
+}
