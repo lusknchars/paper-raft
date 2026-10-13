@@ -2758,7 +2758,7 @@ git add adapters .claude tests/test_adapter.py
 git commit -m "Claude Code adapter: extractor, implementer, reviewer agents and reproduce-paper skill"
 ```
 
-Note on ordering: Task 11 has no dependency on Tasks 7–9 and should run **before** Task 7, so that the extractor, implementers and reviewers can be dispatched as these named agents. Execution order: 1 → 2 → 3 → 4 → 5 → 6 → 11 → 7 → 8a/8b/8c → 9 → 10 → 12 → 13 → 14.
+Note on ordering: Task 11 has no dependency on Tasks 7–9 and should run **before** Task 7, so that the extractor, implementers and reviewers can be dispatched as these named agents. Execution order: 1 → 2 → 3 → 4 → 5 → 6 → 11 → 7 → 8a/8b/8c → 9 → 10 → 12 → 12b → 13 → 14.
 
 ---
 
@@ -2832,6 +2832,329 @@ Cross-platform note: committed runs are produced on macOS, and CI reruns them on
 
 ---
 
+### Task 12b: Every study, one command (`raft new`, `--all-studies`)
+
+Added 2026-10-12 at the owner's request ("rerun with infrastructure that can create and test in all the papers that we collected"). It supersedes spec §9's exclusion of a study template generator.
+
+**Files:**
+- Create: `raft/scaffold.py`
+- Modify: `raft/paths.py` (draft-aware `studies`), `raft/cli.py` (full replacement below), `raft/compare.py` (iterate `paths.studies`), `.github/workflows/ci.yml` (all studies)
+- Test: `tests/test_multi_study.py`
+
+**Interfaces:**
+- Consumes: everything from Tasks 1–12.
+- Produces:
+  - `paths.studies(root: Path, include_drafts: bool = False) -> list[str]`; a study is a draft when its `paper.yaml` has `draft: true`
+  - `paths.resolve_study(...)` accepts drafts when named explicitly
+  - `scaffold.new_study(root: Path, study_id: str, title: str, doi: str) -> Path`
+  - CLI `raft new <id> --title T --doi D`, plus `--all-studies` on `extract --validate`, `review --validate`, `run --all` and `repro`
+
+- [ ] **Step 12b.1: Write the failing tests**
+
+`tests/test_multi_study.py`:
+```python
+import shutil
+
+import pytest
+import yaml
+
+from conftest import make_tiny_study
+from raft import cli, compare, paths
+
+
+@pytest.fixture
+def two_studies(tmp_path, monkeypatch):
+    sd = make_tiny_study(tmp_path)
+    shutil.copytree(sd, sd.parent / "tiny2")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("RAFT_ROOT", raising=False)
+    return tmp_path
+
+
+def test_new_study_scaffold(two_studies):
+    assert cli.main(["new", "smith-2020", "--title", "A paper", "--doi", "10.1/x"]) == 0
+    d = two_studies / "studies" / "smith-2020"
+    assert {p.name for p in (d / "problem").iterdir()} == {"setup.py", "measure.py", "reference.json"}
+    paper = yaml.safe_load((d / "paper.yaml").read_text())
+    assert paper["draft"] is True and paper["pdf"] == "papers/smith-2020.pdf" and paper["doi"] == "10.1/x"
+    assert "smith-2020" not in paths.studies(two_studies)
+    assert paths.resolve_study(two_studies, "smith-2020") == "smith-2020"
+
+
+@pytest.mark.parametrize("sid, msg", [("tiny", "already exists"), ("Bad_Id", "lowercase")])
+def test_new_study_rejects(two_studies, sid, msg):
+    with pytest.raises(SystemExit, match=msg):
+        cli.main(["new", sid, "--title", "t", "--doi", "d"])
+
+
+def test_all_studies_validate_and_run(two_studies, capsys):
+    assert cli.main(["extract", "--validate", "--all-studies"]) == 0
+    assert cli.main(["run", "--all", "--all-studies", "--n", "4"]) == 0
+    out = capsys.readouterr().out
+    assert "── tiny\n" in out and "── tiny2\n" in out
+    assert (two_studies / "studies" / "tiny2" / "runs" / "exact-n4").is_dir()
+
+
+def test_all_studies_reports_bad_params_per_study(two_studies, capsys):
+    assert cli.main(["run", "--all", "--all-studies", "--n", "1"]) == 1
+    out = capsys.readouterr().out
+    assert "✗ tiny: n must be at least 2" in out and "✗ tiny2: n must be at least 2" in out
+
+
+def test_all_studies_skips_drafts(two_studies, capsys):
+    cli.main(["new", "draft-one", "--title", "t", "--doi", "d"])
+    capsys.readouterr()
+    assert cli.main(["review", "--validate", "--all-studies"]) == 0
+    assert "draft-one" not in capsys.readouterr().out
+    assert [s["id"] for s in compare.build(two_studies, None)["studies"]] == ["tiny", "tiny2"]
+
+
+@pytest.mark.parametrize("argv", [["implement", "exact", "--all-studies"], ["run", "exact", "--all-studies"],
+                                  ["review", "--validate", "--all-studies", "--study", "tiny"]])
+def test_all_studies_rejects_single_study_commands(two_studies, argv):
+    with pytest.raises(SystemExit):
+        cli.main(argv)
+
+
+def test_two_studies_need_a_choice(two_studies):
+    with pytest.raises(SystemExit, match="pass --study"):
+        cli.main(["review", "--validate"])
+```
+
+- [ ] **Step 12b.2: Run to verify failure**
+
+Run: `uv run pytest tests/test_multi_study.py -q`
+Expected: FAIL (`raft new` is unknown, and there's no `--all-studies`).
+
+- [ ] **Step 12b.3: Implement**
+
+`raft/paths.py`: replace `studies` and `resolve_study` with:
+```python
+def _is_draft(paper: Path) -> bool:
+    return bool((yaml.safe_load(paper.read_text()) or {}).get("draft"))
+
+
+def studies(root: Path, include_drafts: bool = False) -> list[str]:
+    base = root / "studies"
+    if not base.is_dir():
+        return []
+    return sorted(d.name for d in base.iterdir()
+                  if (d / "paper.yaml").is_file() and (include_drafts or not _is_draft(d / "paper.yaml")))
+
+
+def resolve_study(root: Path, name: str | None) -> str:
+    if name:
+        have = studies(root, include_drafts=True)
+        if name not in have:
+            raise SystemExit(f"raft: unknown study {name!r} (have: {', '.join(have) or 'none'})")
+        return name
+    have = studies(root)
+    if len(have) == 1:
+        return have[0]
+    raise SystemExit(f"raft: pass --study or --all-studies (have: {', '.join(have) or 'none'})")
+```
+and add `import yaml` at the top.
+
+`raft/scaffold.py`:
+```python
+"""Start a new study folder. It stays a draft (skipped by --all-studies and the site) until filled in."""
+import json
+import re
+from pathlib import Path
+
+import yaml
+
+SETUP = '''"""Shared problem setup for {study_id}. Read-only for implementers.
+
+Describe here, precisely, what solve(setup) receives and what it must return.
+"""
+RUN_MATRIX = {{}}
+HEADLINE = {{}}
+
+
+def make_setup(params: dict):
+    raise NotImplementedError("define the experiment's parameters in studies/{study_id}/problem/setup.py")
+
+
+def expand(params: dict) -> list[dict]:
+    raise NotImplementedError("list the runs to make in studies/{study_id}/problem/setup.py")
+'''
+
+MEASURE = '''"""Shared measurement for {study_id}. Read-only; methods never import or read it."""
+
+
+def measure(setup, fields, reference: dict) -> dict:
+    raise NotImplementedError("compare fields with reference.json in studies/{study_id}/problem/measure.py")
+'''
+
+
+def new_study(root: Path, study_id: str, title: str, doi: str) -> Path:
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", study_id):
+        raise SystemExit(f"raft: study id must be lowercase letters, digits and hyphens, got {study_id!r}")
+    d = root / "studies" / study_id
+    if d.exists():
+        raise SystemExit(f"raft: study {study_id!r} already exists at {d}")
+    (d / "problem").mkdir(parents=True)
+    paper = {"title": title, "authors": [], "citation": "", "doi": doi,
+             "pdf": f"papers/{study_id}.pdf", "experiment": "", "draft": True}
+    (d / "paper.yaml").write_text(yaml.safe_dump(paper, sort_keys=False, allow_unicode=True))
+    (d / "problem" / "setup.py").write_text(SETUP.format(study_id=study_id))
+    (d / "problem" / "measure.py").write_text(MEASURE.format(study_id=study_id))
+    (d / "problem" / "reference.json").write_text(json.dumps(
+        {"citation": title, "doi": doi, "tolerance": 0.01, "cases": {}}, indent=2) + "\n")
+    return d
+```
+
+`raft/compare.py`: in `build`, replace the loop header
+`for sd in sorted(p for p in (root / "studies").iterdir() if (p / "paper.yaml").is_file()):`
+with `for sd in (root / "studies" / s for s in paths.studies(root)):`, and change the import line to `from . import paths, runner, schema`.
+
+`raft/cli.py`: full replacement. `_value`, `_split`, `_params` and `_report` keep their Task 6 bodies; only `KNOWN` changes.
+```python
+"""raft: new | extract | implement | run | review | repro | compare."""
+import argparse
+import sys
+from pathlib import Path
+
+from . import briefs, paths, runner, scaffold, validate
+
+# Options raft itself understands; every other --key [value] is a study parameter.
+KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out", "--title", "--doi", "--help", "-h"}
+
+# _value, _split, _params, _report: unchanged from Task 6.
+
+
+def _study_cmd(p, args, root: Path, study: str, params: dict) -> int:
+    sd = root / "studies" / study
+    if args.cmd == "extract":
+        if args.validate:
+            return _report(validate.extraction(sd), f"{study}/extraction.json is valid")
+        print(briefs.render(root, "extractor", study))
+        return 0
+    if args.cmd == "implement":
+        print(briefs.render(root, "implementer", study, args.method))
+        return 0
+    if args.cmd == "review":
+        if args.validate:
+            return _report(validate.methods_and_reviews(sd), f"{study}: method.json files and reviews are valid")
+        if not args.method:
+            p.error("review needs a method name, or --validate")
+        print(briefs.render(root, "reviewer", study, args.method))
+        return 0
+    if args.cmd == "repro":
+        return _report(runner.repro(sd, params, args.timeout), f"{study}: every matching run reproduced")
+    if args.all == bool(args.method):
+        p.error("give one method name or --all")
+    names = runner.methods(sd) if args.all else [args.method]
+    if not names:
+        if args.all_studies:
+            print(f"• {study}: no methods yet")
+            return 0
+        raise SystemExit(f"raft: no methods in {sd / 'methods'} yet")
+    try:
+        combos = runner.expand(sd, params)
+    except ValueError as e:
+        if args.all_studies:
+            print(f"✗ {study}: {e}")
+            return 1
+        raise SystemExit(f"raft: {e}") from None
+    for name in names:
+        for combo in combos:
+            print(runner.summary(*runner.run_one(sd, name, combo, args.timeout)), flush=True)
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--study", help="study folder under studies/ (default: the only one)")
+    common.add_argument("--all-studies", action="store_true", help="repeat for every study that is not a draft")
+    p = argparse.ArgumentParser(prog="raft", description="Reproduce research papers with agents, in a controlled environment.")
+    sub = p.add_subparsers(dest="cmd", required=True)
+    n = sub.add_parser("new", help="start a new study folder (a draft until problem/ is filled in)")
+    n.add_argument("study_id")
+    n.add_argument("--title", required=True)
+    n.add_argument("--doi", required=True)
+    e = sub.add_parser("extract", parents=[common], help="print the extractor brief, or --validate extraction.json")
+    e.add_argument("--validate", action="store_true")
+    im = sub.add_parser("implement", parents=[common], help="print the implementer brief for one method")
+    im.add_argument("method")
+    r = sub.add_parser("run", parents=[common], help="run methods; extra --key value pairs are study parameters")
+    r.add_argument("method", nargs="?")
+    r.add_argument("--all", action="store_true")
+    r.add_argument("--timeout", type=float, default=1800.0)
+    rv = sub.add_parser("review", parents=[common], help="print the reviewer brief, or --validate methods and reviews")
+    rv.add_argument("method", nargs="?")
+    rv.add_argument("--validate", action="store_true")
+    rp = sub.add_parser("repro", parents=[common], help="rerun committed runs; extra --key value pairs filter them")
+    rp.add_argument("--timeout", type=float, default=1800.0)
+    c = sub.add_parser("compare", help="score every run and build the static site")
+    c.add_argument("--out", default="site")
+    keep, rest = _split(sys.argv[1:] if argv is None else argv)
+    args = p.parse_args(keep)
+    if rest and args.cmd not in ("run", "repro"):
+        p.error(f"unrecognized arguments: {' '.join(rest)}")
+    root = paths.repo_root()
+
+    if args.cmd == "new":
+        d = scaffold.new_study(root, args.study_id, args.title, args.doi)
+        print(f"✓ created {d.relative_to(root)} as a draft. Next: fill in problem/setup.py, problem/measure.py and "
+              f"problem/reference.json, put the PDF at papers/{args.study_id}.pdf, delete `draft: true` from "
+              f"paper.yaml, then run `uv run raft extract --study {args.study_id}`.")
+        return 0
+    if args.cmd == "compare":
+        from . import compare
+        out = Path(args.out) if Path(args.out).is_absolute() else root / args.out
+        compare.write_site(compare.build(root, compare.repo_url(root)), out)
+        print(f"✓ site written to {out}. Open {out / 'index.html'}")
+        return 0
+
+    params = _params(rest)
+    if args.all_studies:
+        single = (args.cmd == "implement" or (args.cmd in ("extract", "review") and not args.validate)
+                  or (args.cmd == "run" and not args.all) or args.study)
+        if single:
+            p.error("--all-studies works with: extract --validate, review --validate, run --all, repro (and not with --study)")
+        targets = paths.studies(root)
+        if not targets:
+            raise SystemExit("raft: no studies yet (drafts are skipped)")
+    else:
+        targets = [paths.resolve_study(root, args.study)]
+    code = 0
+    for study in targets:
+        if args.all_studies:
+            print(f"── {study}")
+        code = max(code, _study_cmd(p, args, root, study, params))
+    return code
+```
+
+Notes: the `_study_cmd` messages for `repro` now include the study name; `test_cli.py` only checks exit codes there. Update `tests/test_cli.py::test_validate_commands` if it asserted any changed text (it checks only for "✓").
+
+`.github/workflows/ci.yml`: replace the three study steps with
+```yaml
+      - run: uv run raft extract --validate --all-studies
+      - run: uv run raft review --validate --all-studies
+      - run: uv run raft repro --all-studies
+```
+
+- [ ] **Step 12b.4: Run to verify pass**
+
+Run: `uv run pytest -q`
+Expected: all PASS, with the earlier suites unchanged.
+
+- [ ] **Step 12b.5: Real-repo smoke check**
+
+Run: `uv run raft repro --all-studies`
+Expected: `── ghia-1982` followed by one ✓ per committed run, and `✓ ghia-1982: every matching run reproduced`.
+
+- [ ] **Step 12b.6: Commit**
+
+```bash
+git add raft/scaffold.py raft/paths.py raft/cli.py raft/compare.py .github/workflows/ci.yml tests/test_multi_study.py
+git commit -m "raft new and --all-studies: scaffold studies, rerun and validate every paper at once"
+```
+
+---
+
 ### Task 13: Open-source documents
 
 **Files:**
@@ -2874,6 +3197,8 @@ No API key is needed to rerun and check results.
 | Review | a different agent per method | `reviews/<name>.json` | `raft review --validate` |
 | Compare | `raft compare` | `site/` | |
 
+Working with many papers: `uv run raft new <id> --title … --doi …` starts a study, and `uv run raft repro --all-studies` reruns every committed result in every study. CI does the same on every push.
+
 A result shows as **verified** only when it is within tolerance, a reviewer verified the exact solver commit that produced it, and the run was made from committed code. Everything else shows as **unverified** or **failed**, and failures are published too.
 
 ## First study: Ghia, Ghia & Shin (1982)
@@ -2907,7 +3232,7 @@ Apache-2.0. See [LICENSE](LICENSE). To cite Paper Raft, use [CITATION.cff](CITAT
 5. Open a PR. A maintainer or a different agent reviews it with `uv run raft review <your-method>`; you can't review your own method.
 
 ## Add a study (a new paper)
-Create `studies/<id>/` containing:
+Start with `uv run raft new <id> --title "…" --doi "…"`. That creates a draft folder, which `--all-studies` and the site skip until you remove `draft: true` from `paper.yaml`. Fill in:
 - `paper.yaml`: `title`, `authors`, `citation`, `doi`, `pdf` (a local path under `papers/`; never commit the PDF), `experiment`
 - `problem/setup.py`: `make_setup(params)`, `expand(params)`, `HEADLINE`, optional `REPRO_RTOL`, and a docstring that defines the `solve(setup)` interface
 - `problem/measure.py`: `measure(setup, fields, reference)` returning `samples`, `reference_samples`, `errors`, `tolerance`, `pass`, and optionally `fields_coarse`

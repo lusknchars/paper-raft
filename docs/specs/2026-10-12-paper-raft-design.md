@@ -112,7 +112,9 @@ paper-raft/
 
 ## 9. Out of scope for v1
 
-Live agent feed / mission-control view; a "bring your own paper" walkthrough and study template generator (the folder structure is documented, but there is no wizard); Codex/Gemini/OpenCode adapters; GPU solvers; Re above 1000; hosted execution.
+Added on 2026-10-12 at the owner's request, and so **in** scope: `raft new <id>` scaffolds a draft study, and `--all-studies` validates, runs and reproduces every non-draft study in one command; CI uses it.
+
+Out of scope: the live agent feed / mission-control view; a guided "bring your own paper" walkthrough; Codex/Gemini/OpenCode adapters; GPU solvers; Re above 1000; hosted execution.
 
 ## 10. Open-source hygiene
 
