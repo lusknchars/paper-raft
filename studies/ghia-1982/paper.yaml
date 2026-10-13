@@ -4,3 +4,4 @@ citation: "Ghia, U., Ghia, K. N., & Shin, C. T. (1982). Journal of Computational
 doi: "10.1016/0021-9991(82)90058-4"
 pdf: "papers/ghia-1982.pdf"
 experiment: "Lid-driven square cavity, centreline velocity profiles (Tables I and II), Re = 100 on a 129×129 grid"
+draft: true  # until extraction from the PDF exists (Task 7); --all-studies and the site skip drafts

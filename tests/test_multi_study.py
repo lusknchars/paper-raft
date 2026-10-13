@@ -64,3 +64,12 @@ def test_all_studies_rejects_single_study_commands(two_studies, argv):
 def test_two_studies_need_a_choice(two_studies):
     with pytest.raises(SystemExit, match="pass --study"):
         cli.main(["review", "--validate"])
+
+
+def test_all_studies_with_only_drafts_is_a_clean_no_op(tmp_path, monkeypatch, capsys):
+    sd = make_tiny_study(tmp_path)
+    (sd / "paper.yaml").write_text((sd / "paper.yaml").read_text() + "draft: true\n")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("RAFT_ROOT", raising=False)
+    assert cli.main(["repro", "--all-studies"]) == 0
+    assert "no studies to check yet" in capsys.readouterr().out

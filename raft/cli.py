@@ -153,7 +153,8 @@ def main(argv: list[str] | None = None) -> int:
             p.error("--all-studies works with: extract --validate, review --validate, run --all, repro (and not with --study)")
         targets = paths.studies(root)
         if not targets:
-            raise SystemExit("raft: no studies yet (drafts are skipped)")
+            print("• no studies to check yet (drafts are skipped)")
+            return 0
     else:
         targets = [paths.resolve_study(root, args.study)]
     code = 0

@@ -4,7 +4,7 @@ Agents reproduce research papers in a controlled environment, and every result s
 
 A paper goes in. Out come independent implementations of its methods, measured with the same tools against the paper's own numbers, checked by a separate reviewer, and browsable in a static site where every number links to its code, its run and its page in the paper.
 
-![Comparison view](docs/screenshots/site-comparison.png)
+> **Status (October 2026): early work in progress.** The harness, CLI, guard, status rule and site are built and tested. The first study (Ghia 1982) is waiting on extraction from the paper, so no reproductions are published yet.
 
 ## Quickstart
 
