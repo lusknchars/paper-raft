@@ -9,13 +9,15 @@ Each method is graded against the claim the paper makes for it in the run's case
 - ``unbiased`` (§3.3, §4.3, Fig. 9a): for every target and M, the seed average of Ẑ/Z is within 1e-9 of 1 or
   within ``z_max`` standard errors of it; a pooled test over all cells is within ``z_max`` too; the relative RMSE
   at the largest M is below that at the smallest M for every target; and where the case requires it, the seeds
-  really differ (an estimator, not an exact computation).
+  really differ: the between-seed std of Ẑ/Z exceeds ``min_spread`` in every cell (an estimator, not an exact
+  computation). Estimates of zero are legitimate (a run the tail roulette ended) and count in every test.
 - ``lower_bound``: beam summing with prune_τ (Fig. 1) only discards mass, so Ẑ ≤ Z; and it is the specific
   deterministic algorithm of Fig. 1, so Ẑ matches this module's own run of it within ``beam_rtol``.
 
 Every claim except ``lower_bound`` also needs ``max_particles ≤ M``.
 """
 import math
+import warnings
 
 import numpy as np
 
@@ -160,15 +162,18 @@ def measure(setup, fields, reference: dict, method: str) -> dict:
                   if live.any() else 0.0)
         rmse = np.sqrt(np.mean((ratio - 1) ** 2, axis=2))      # relative RMSE, Fig. 9a
         shrinks = [(r[-1] < r[0]) or (r[-1] <= 1e-12 and r[0] <= 1e-12) for r in rmse]
-        with np.errstate(invalid="ignore"):
-            sd_log = np.std(np.where(np.isfinite(log_z), log_z, np.nan), axis=2, ddof=1)
+        with np.errstate(invalid="ignore"), warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            # Display only: spread of log Ẑ over the seeds whose estimate is nonzero.
+            sd_log = np.nanstd(np.where(np.isfinite(log_z), log_z, np.nan), axis=2, ddof=1)
         errors["max_z"] = _finite(z.max())
         errors["pooled_z"] = _finite(abs(pooled))
         errors["worst_rmse_ratio"] = _finite(max(r[-1] / r[0] if r[0] > 0 else 0.0 for r in rmse))
         passed = passed and errors["max_z"] <= tolerance and errors["pooled_z"] <= tolerance and all(shrinks)
         if case.get("require_spread"):
-            errors["min_sd_log_z"] = _finite(float(np.nan_to_num(sd_log, nan=0.0).min()))
-            passed = passed and errors["min_sd_log_z"] > float(case["min_spread"])
+            # Spread of Ẑ/Z itself, so seeds whose estimate is 0 (a legitimate outcome, §4.1) still count.
+            errors["min_rel_sd"] = _finite(float(np.nan_to_num(sd, nan=0.0).min()))
+            passed = passed and errors["min_rel_sd"] > float(case["min_spread"])
         for i in range(len(setup.targets)):
             samples[f"rel_rmse_t{i + 1}"] = _pairs(m, rmse[i])
             samples[f"sd_log_z_t{i + 1}"] = _pairs(m, np.nan_to_num(sd_log[i], nan=1e300))

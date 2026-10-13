@@ -161,7 +161,12 @@ def test_unbiased_claim():
     assert not _grade("bigram", "smc-simple", flat)["pass"]  # error does not fall with M
     exact = np.broadcast_to(_exact(s)[:, None, None], _shape(s))
     r = _grade("bigram", "smc-rb", exact + 1e-13)
-    assert not r["pass"] and r["errors"]["min_sd_log_z"] <= 1e-3  # computing the answer is not estimating it
+    assert not r["pass"] and r["errors"]["min_rel_sd"] <= 1e-3  # computing the answer is not estimating it
+    some_zero = _noisy(s, sigma=0.3)
+    some_zero[2, 0, :40] = -np.inf  # runs the tail roulette ended: Ẑ = 0 is a legitimate estimate
+    some_zero[2, 0, 40:] += math.log(128 / 88)
+    zr = _grade("bigram", "smc-simple", some_zero)
+    assert zr["errors"]["min_rel_sd"] > 1e-3 and all(np.isfinite(v) for _, v in zr["samples"]["sd_log_z_t3"])
     fake = exact + np.random.default_rng(2).normal(0, 1e-4, size=_shape(s))
     assert not _grade("bigram", "beam-swor", fake)["pass"]  # nor is the answer with a little noise added
 
