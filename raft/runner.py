@@ -1,5 +1,6 @@
 """Run a method on a study's shared problem in a child process and record everything."""
 import importlib.util
+import inspect
 import json
 import multiprocessing as mp
 import platform
@@ -89,7 +90,9 @@ def execute(study_dir: Path, method: str, params: dict, timeout: float) -> tuple
         measure_mod = load_module(problem / "measure.py", "raft_measure")
         reference = json.loads((problem / "reference.json").read_text())
         try:
-            measured = measure_mod.measure(setup_mod.make_setup(params), fields, reference)
+            # A study whose methods make different claims can take `method` and grade each by name.
+            extra = {"method": method} if "method" in inspect.signature(measure_mod.measure).parameters else {}
+            measured = measure_mod.measure(setup_mod.make_setup(params), fields, reference, **extra)
             results = {"run_id": rid, "status": "ok", **measured}
         except ValueError as e:
             results["reason"] = f"measure: {e}"

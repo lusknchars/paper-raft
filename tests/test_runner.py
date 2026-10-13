@@ -73,3 +73,13 @@ def test_repro_passes_then_detects_changed_solver(tiny_git_study):
 def test_repro_filters(tiny_git_study):
     runner.run_one(tiny_git_study, "exact", {"n": 4}, timeout=60)
     assert runner.repro(tiny_git_study, {"n": 99}, timeout=60) == ["no runs match the filter {'n': 99}"]
+
+
+def test_measure_can_ask_for_the_method_name(tiny_study):
+    """A study whose methods carry different claims grades each by name; others keep the 3-argument form."""
+    (tiny_study / "problem" / "measure.py").write_text(
+        "def measure(setup, fields, reference, method):\n"
+        "    return {'samples': {}, 'errors': {'named': float(method == 'exact')}, 'tolerance': 1.0,\n"
+        "            'pass': method == 'exact'}\n")
+    _, results = runner.run_one(tiny_study, "exact", {"n": 4}, timeout=60)
+    assert results["status"] == "ok" and results["errors"] == {"named": 1.0} and results["pass"] is True
