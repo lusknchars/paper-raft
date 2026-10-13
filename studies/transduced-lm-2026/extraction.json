@@ -268,7 +268,7 @@
       "page": 20,
       "quote": "",
       "missing": true,
-      "assumption": "When a particle's prefix x satisfies is_cylinder(x, y), complete it immediately: R.add((x, w)) and drop it from the pool. Every completion of a cylinder has potential 1 and, under the live twist, the particle's weight would never change again (nu(x) = 1), so this is the exact conditional value of the rest of its run and Z_hat stays unbiased. Apply it in both cases so the method is one algorithm; in the bigram case it only changes which particles share later resampling steps and saves ~500 extension steps per particle (stop prob 0.002). Keep EOS sampling at member non-cylinder prefixes (none exist with the codon transducer)."
+      "assumption": "Follow Fig. 10 as written: no cylinder shortcut. Particles stop only by sampling EOS. Both sources in setup.py stop with probability one (bigram: 0.02 after each base; worst case: exactly at length 300, as in App. E), so smc_simple halts without it. Adding the shortcut would turn smc_simple into smc_rb. (Updated by the controller after the yardstick review: setup.UNIFORM now stops at 300.)"
     },
     {
       "id": "smc-rb-proposal",
@@ -394,7 +394,7 @@
     {
       "id": "seeds-fig9a",
       "kind": "parameter",
-      "text": "Fig. 9(a): relative RMSE over 64 seeds and three targets, with 95% bootstrap intervals. setup bigram case: seeds 0..63, three targets.",
+      "text": "Fig. 9(a): relative RMSE over 64 seeds and three targets, with 95% bootstrap intervals. setup bigram case: seeds 0..127 (more than the paper's 64, to give the unbiasedness test power), three targets.",
       "page": 14,
       "quote": "Relative RMSE against exact values over 64 seeds and three targets, with 95% bootstrap intervals.",
       "missing": false
@@ -474,7 +474,7 @@
       "page": 14,
       "quote": "",
       "missing": true,
-      "assumption": "Use setup.BIGRAM, a hand-set high-entropy, A/T-rich, CpG-depleted bigram over ACGT with start row (.30,.20,.20,.30, no stop) and stop probability 0.002 after every base. It is a stand-in, so Table 2's DNA numbers are not reproducible; we test the claims (unbiased, error falls with M, beam_summing is a lower bound). p_dna (GPT-2 on DNA) is not covered."
+      "assumption": "Use setup.BIGRAM, a hand-set high-entropy, A/T-rich, CpG-depleted bigram over ACGT with start row (.30,.20,.20,.30, no stop) and stop probability 0.02 after every base (high enough that smc_simple, which walks each particle to EOS, fits the time budget). It is a stand-in, so Table 2's DNA numbers are not reproducible; we test the claims (unbiased, error falls with M, beam_summing is a lower bound). p_dna (GPT-2 on DNA) is not covered."
     },
     {
       "id": "dna-targets",
@@ -509,7 +509,7 @@
       "page": 30,
       "quote": "",
       "missing": true,
-      "assumption": "setup.UNIFORM gives 1/4 per base and p(EOS|x) = 0 for every prefix (it never stops). Prefix probabilities, and hence Z = 3^100 4^-300, are the same as the paper's length-3T source, and beam_summing/beam_swor/beam_swor_adaptive/smc_rb are unaffected (cylinders end every branch). smc_simple must use the cylinder completion of smc-simple-cylinder-completion to halt."
+      "assumption": "setup.UNIFORM gives 1/4 per base and stops after exactly 300 bases (p(EOS|x) = 1 at length 300, 0 before), matching App. E's p_X(x) = (1/4)^{3T} over strings of length 3T. The worst case also turns the tail roulette off (kappa = 0): the decomposition is finite, so every method halts, and the paper's exactness argument ignores the roulette. setup.py adds a second worst-case target (WORST_MIX) made of amino acids whose codons share their first two bases, where the same argument holds."
     },
     {
       "id": "worst-case-closed-form",

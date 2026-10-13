@@ -14,5 +14,7 @@ experiment: >-
   with exact answers from path sums (Appendix D). The paper does not name its DNA corpus or list its targets,
   so the bigram and the three targets here are stand-ins: we test the paper's claims (unbiased, error falls
   with M, beam summing is a lower bound, exactness in the worst case), not its Table 2 numbers. The text
-  (WikiText-2 + PTB tokenizer) and GPT-2 experiments are not covered.
+  (WikiText-2 + PTB tokenizer) and GPT-2 experiments are not covered. With the genetic code every covering
+  prefix is already a cylinder, so the remainder is always empty: the code paths for remainder entries and
+  their stop weights are not exercised here.
 draft: true  # until extraction from the PDF exists and the methods are reviewed
