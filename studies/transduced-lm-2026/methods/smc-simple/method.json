@@ -1,0 +1,27 @@
+{
+  "name": "smc-simple",
+  "implements": [
+    "smc-simple",
+    "smc-simple-weight-update",
+    "smc-simple-z-hat",
+    "smc-simple-cylinder-completion",
+    "smc-rb-proposal",
+    "twist-is-live",
+    "twist-is-live-all-experiments",
+    "ess",
+    "ess-gated-multinomial-resample",
+    "eta-default",
+    "tail-roulette",
+    "kappa-dna",
+    "empty-target-base-case",
+    "empty-pool-handling",
+    "failed-run-zero",
+    "rng-and-seeds",
+    "m-meaning-per-method",
+    "smc-simple-unbiased",
+    "appendix-e-eq50-exact",
+    "zero-mass-convention"
+  ],
+  "author_agent": "claude-code:implementer#smc-simple",
+  "notes": "Follows Fig. 10 (lines 86-105) and App. B.3 as written [smc-simple, smc-simple-weight-update, smc-simple-z-hat]. Proposal: Eq. 33 with t = |y| and psi = is_live [smc-rb-proposal, twist-is-live, twist-is-live-all-experiments]: q(x'|x) = p(x'|x) is_live(xx',y)/nu(x), q(EOS|x) = is_member(x,y) p(EOS|x)/nu(x); the Eq. 27 factor p/q is nu(x) for every allowed draw. Predicates are evaluated only where the source mass is positive (a zero source mass zeroes the product anyway) and cached per run by prefix string; no use of is_cylinder at all. No cylinder shortcut [smc-simple-cylinder-completion]: a particle completes only by sampling EOS; on EOS its weight times phi(x) = is_member(x,y) goes to R (phi is always 1 there, since q(EOS|x) = 0 at non-members). Particles with nu(x) = 0 are dropped (proposal undefined, zero target mass) [empty-pool-handling]. Initial pool: M copies of (empty, 1/M); M = setup.m_values[j] is the initial particle count, never replenished [m-meaning-per-method]. Resample: ESS-gated multinomial with replacement, keep the pool if ESS >= eta|P|, else draw |P| indices iid ~ w/sum w and reset every weight to the mean [ess, ess-gated-multinomial-resample]; eta = setup.eta = 0.5 for smc_simple too (the paper gives eta only for smc_rb) [eta-default]. Tail roulette [tail-roulette, tail-roulette-halting, kappa-dna]: Fig. 13 decorator wraps resample (applied to P' after resample, before the next iteration); w0 = 1/M, the weight at the start of the run (Fig. 10 has no target-prefix calls), inherited by children and resampled copies; kappa = setup.kappa (e^-30 bigram; 0 in the worst case, where the decorator is skipped). Completed particles in R are not subject to the roulette. Because Z is about e^-30..e^-33 here, the roulette fires on bigram targets with Z < e^-30 and some M = 16 runs die (Z_hat = 0, log_z = -inf) [failed-run-zero]; this is the method as specified, not tuned. max_particles = largest pool size after a resample+roulette step (the initial M copies are not counted as a prune; in practice the first step keeps all M). Weights are kept in log space (log Z_hat = logsumexp over R; -inf when R is empty) to avoid underflow; this changes no arithmetic beyond rounding. Sampling by inverse CDF on one uniform per particle; a draw that lands on a zero-probability symbol through rounding at the top of the CDF is moved to the last positive symbol. Randomness only from setup.rng(i, j, k), one independent run per (target, M, seed) [rng-and-seeds]. Halting: the loop ends when the pool is empty (both sources stop with probability one [worst-case-source-stop, dna-training-corpus]); iteration cap 200000 raises RuntimeError('did not converge ...'). Self-checks (dev only, not in solve): worst case matches App. E's d^T 4^-3T for both targets and all M to 1e-12 in log (zero variance, Eq. 50) [appendix-e-eq50-exact, worst-case-closed-form]; bigram 128-seed log-means at M = 16 and 256 agree with independent M = 4096, kappa = 0 runs to within about 0.05 nats [smc-simple-unbiased]."
+}
