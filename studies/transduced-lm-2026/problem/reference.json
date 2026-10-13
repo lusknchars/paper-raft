@@ -19,8 +19,7 @@
         "exact": 1e-09,
         "top_m_share": 1e-09,
         "unbiased": 4.0
-      },
-      "claims_note": "The paper proves exactness here for smc_simple, smc_rb and fixed-M beam_swor only; beam_swor_adaptive is graded on its general claim (unbiased), which an exact result passes trivially."
+      }
     },
     "bigram": {
       "section": "§4.3–4.4, Fig. 9(a), Table 2",
