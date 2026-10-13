@@ -1,0 +1,41 @@
+{
+  "method": "smc-rb",
+  "reviewed_sha": "34a258b2c63db64ff9f25e917af4342cb7e8f2d6",
+  "reviewer_agent": "claude-code:raft-reviewer#smc-rb",
+  "verdict": "verified",
+  "summary": "solver.py follows Fig. 12 (lines 106-143) and Fig. 13 (lines 144-158) line by line, with the target recursion unrolled into a loop over t that passes (Q, R) forward. Checked: base case M copies of (eps, 1/M) (line 109); Queue(Q') start pool; remainder re-check of R' with A += w (lines 114-117); cylinder -> Q and A += w; member -> R gets w p(EOS|x) and A += it (RB stop branch); lambda = sum_{x' in ACGT} p(x'|x) is_live(x x', y_<=t), drop at lambda = 0 (target-step factor 0); child drawn proportional to p(x'|x) psi(x x') by inverse CDF; weight w lambda (Eq. 38); prune = with_tail_roulette(resample_{psi,eta}) applied after every extension round; ESS gate V^2 >= eta N sum W^2 with eta = setup.eta = 0.5; multinomial with N iid draws, weight V/N; w0 reset to w at the start of each target-prefix call and inherited by children and resampled copies; roulette compares w >= kappa w0, keeps 2w with prob. 1/2, kappa = 0 disables it; Z_hat_t = A of the call, estimate = last entry. Weights are in log space (correct for the ~e^-420 worst case). Estimates, does not solve: source used only via next_probs and alphabet, transducer only via is_live/is_member/is_cylinder; no _start/_trans/_max_len, closed forms or enumeration. Randomness only from setup.rng(i, j, k); two identical solve calls give bit-identical output. max_particles = largest pool after resample+roulette; resample keeps |P'| <= |P| and each pool particle yields at most one child or moves to Q, so |Q| + |pool| <= M and the start-of-call pool can never exceed M either (only R can grow beyond M in general, but R entries are not particles). Unexercised paths tested by the reviewer in a scratchpad (no edits): (a) tail roulette with kappa = 0.5 on target LS (30000 seeds, M = 4): mean Z_hat/Z = 1.006, z = +0.47; other targets/M within 1.5 SE; (b) remainder and re-check paths via a sound but weaker cylinder predicate (members of odd length declared non-cylinders): mean ratios within 0.9 SE of 1 for LS, MKT, MVHL at M = 4 and 16; (c) both together at kappa = 0.3: 30000 seeds give ratio 0.998, z = -0.19. Committed runs: worst case exact to 1.7e-13, bigram PASS (max_z 2.14, pooled_z 0.53). method.json notes record every choice for the missing items that touch this method (empty-pool-handling, rng-and-seeds, m-meaning-per-method, predicate-implementation, worst-case kappa = 0). Only minor discrepancies remain.",
+  "discrepancies": [
+    {
+      "file": "solver.py",
+      "line": 148,
+      "extraction_id": "zero-mass-convention",
+      "page": 27,
+      "description": "Fig. 12 line 126 always adds (x, w p(EOS|x)) to R at a member; the code omits the entry when p(EOS|x) = 0. Its contribution to A and to any later re-check is zero either way, so the estimate is unchanged; documented in notes (6). Not exercised by the graded cases (R is always empty).",
+      "severity": "minor"
+    },
+    {
+      "file": "solver.py",
+      "line": 159,
+      "extraction_id": "smc-rb-proposal",
+      "page": 25,
+      "description": "Child sampling has an undocumented rounding guard that steps j downwards while mass[j] <= 0. searchsorted(side='right') on the cumulative mass with u < 1 cannot select a zero-mass symbol, so the guard should never fire; if it did it would shift probability to a lower-index live symbol. Harmless in practice, but not mentioned in notes.",
+      "severity": "minor"
+    },
+    {
+      "file": "solver.py",
+      "line": 38,
+      "extraction_id": "precover-predicates",
+      "page": 3,
+      "description": "Unexplained-looking constant _LIMIT = 1_000_000 for clearing the memo caches. It is a pure performance knob (caches are deterministic, results do not depend on it) and is stated in notes (10); not a tuning constant of the algorithm.",
+      "severity": "minor"
+    },
+    {
+      "file": "solver.py",
+      "line": 168,
+      "extraction_id": "smc-rb",
+      "page": 27,
+      "description": "max_particles counts pool sizes only after each resample+roulette step and does not count the initial M copies of (eps, 1/M) or start-of-call pools. This matches setup.py's definition ('after any prune or resampling step'), and by construction no pool (including the start-of-call Q') can exceed M, so it does not matter for the paper's fixed-M notion (Tab. 1). Recorded for completeness.",
+      "severity": "minor"
+    }
+  ]
+}

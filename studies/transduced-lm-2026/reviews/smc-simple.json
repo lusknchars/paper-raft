@@ -1,0 +1,33 @@
+{
+  "method": "smc-simple",
+  "reviewed_sha": "6afa80e339ecb7c13030736f880fe764d512370e",
+  "reviewer_agent": "claude-code:raft-reviewer#smc-simple",
+  "verdict": "verified",
+  "summary": "solver.py follows Fig. 10 (lines 86-105), App. B.3 and Fig. 13 / App. B.6. The initial pool is M copies of (eps, 1/M). The proposal is Eq. 33 with t = |y| and psi = is_live: base masses are p(x'|x)·is_live(xx',y), and the EOS mass is p(EOS|x)·is_member(x,y). The Eq. 27 weight factor is nu(x) for every allowed draw, which is correct because p/q = nu. On EOS, w·phi(x) goes to R (phi = is_member), and Z_hat = sum over R (logsumexp, -inf when R is empty). resample is ESS-gated multinomial: it keeps P when (sum w)^2 >= eta|P| sum w^2, and otherwise draws |P| indices iid from w/sum w and resets every weight to the mean, as in Eq. 30 and lines 100-105. Tail roulette follows Fig. 13 and is applied to resample's output: w = 0 particles are skipped, w >= kappa·w0 particles are kept, and lighter particles survive with probability 1/2 at weight 2w. w0 = 1/M is inherited by children and resampled copies, and kappa = 0 disables the roulette. Fig. 10 has no target-prefix calls, so the setup.py docstring defines w0 as the weight at the start of the run, which the code honours. The method only estimates: it uses only next_probs_batch, alphabet, is_live and is_member, with no _start/_trans/_max_len, no closed forms and no enumeration. All randomness comes from setup.rng(i,j,k), and the method is deterministic otherwise. max_particles is the largest pool after each resample+roulette step. The start pool is exactly M, and resampling never grows the pool, so the value is never above M, consistent with Table 1's fixed-M meaning. I checked by running it. Worst case: the committed run gives max |log error| 1.7e-13, the exact zero-variance result of Eq. 50. Bigram: the committed run passes with max_z 2.38 and pooled_z 0.26 against tolerance 4, and RMSE shrinks with M. Paths the graded runs seldom exercise: with the roulette forced on (kappa = e^-3, M = 4, 4000 seeds), the mean of Z_hat/Z was 1.018 ± 0.014 for y = 'M' (30% zeros) and 1.05 ± 0.064 for y = 'MK' (93% zeros), so it stays unbiased. The empty target returns Z = 1 exactly. Only minor points remain. eta = 0.5 is assumed for smc_simple. A rounding guard on the inverse CDF can move a draw. The literal w0 = 1/M choice makes the roulette fire on every walk for targets with Z < kappa, giving -inf cells at M = 16 on MKTAYIAKQR. That is faithful to the docstring and to B.6, and it stays unbiased.",
+  "discrepancies": [
+    {
+      "file": "solver.py",
+      "line": 159,
+      "extraction_id": "eta-default",
+      "page": 25,
+      "description": "The paper states eta = 0.5 only for smc_rb (App. C). The solver applies setup.eta = 0.5 to smc_simple's Fig. 10 resample too. This is stated in notes and in the extraction item, and it is a reasonable reading, but the paper does not give it directly.",
+      "severity": "minor"
+    },
+    {
+      "file": "solver.py",
+      "line": 121,
+      "extraction_id": "tail-roulette",
+      "page": 28,
+      "description": "w0 = 1/M (the run's starting weight), as the setup.py docstring says for a method without target-prefix calls. smc_simple's weight carries the whole-target product of nu(x), which is about Z. So the threshold kappa·w0 = e^-30/M is crossed on every walk whenever Z < e^-30 (target MKTAYIAKQR, Z ~ e^-32.4), and many M = 16 runs return Z_hat = 0. This is faithful to Fig. 13 / B.6, and the decorator keeps the estimator unbiased. It is a literal reading where the paper is silent for Fig. 10, not a code error. Noted because it drives the -inf cells.",
+      "severity": "minor"
+    },
+    {
+      "file": "solver.py",
+      "line": 140,
+      "extraction_id": "smc-simple-weight-update",
+      "page": 24,
+      "description": "Inverse-CDF sampling has a guard: a draw that lands on a q = 0 symbol through floating-point rounding at the top of the CDF is moved to the last positive symbol. This shifts probability by at most ~1e-16 and is not in the paper. The effect is negligible, and it keeps the support condition of Eq. 29.",
+      "severity": "minor"
+    }
+  ]
+}

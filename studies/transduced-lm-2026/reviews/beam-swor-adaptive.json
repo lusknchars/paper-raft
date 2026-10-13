@@ -1,0 +1,33 @@
+{
+  "method": "beam-swor-adaptive",
+  "reviewed_sha": "fa873449c368159d285549d0ac13fef7dd9aa3c4",
+  "reviewer_agent": "claude-code:raft-reviewer#beam-swor-adaptive",
+  "verdict": "verified",
+  "summary": "solver.py implements beam_summing (Fig. 1) with swor_adaptive (Fig. 2 lines 63-85) as its prune, and it matches the paper on every implemented item. It starts from {(eps, 1)} and re-checks remainder entries with is_member. A cylinder goes to Q and A. A member adds w*p(EOS|x) to R and A without a continue, so the particle is still extended. Children are created only where is_live holds (psi = is_live), and the prune is called with the A of the current call. Ẑ_t is the call's final A, with Ẑ_0 = 1 in A_eps = max(A, eps*Ẑ_{t-1}) (Eq. 17), which is used only for the count. The prune follows Eqs. 15-16: c = M/(rho(A+W)), mu = sum min(1, cW_i), m = min(M, floor(mu+1/2)). When m = 0 it plays Russian roulette with B ~ Bernoulli(mu), sets m = 1 and divides the weights by mu, while pps still uses the unscaled twisted weights. If |I+| <= m it keeps I+. Otherwise it runs pps (certainty-set pinning) and systematic sampling and applies Horvitz-Thompson reweighting w/pi. Systematic sampling runs over the non-pinned particles only, which is the same distribution as Fig. 2's draw over all N, because each removed unit interval holds exactly one grid point. As App. B.6 says, there is no tail-roulette decorator. The code never touches source._start, _trans or _max_len, uses no closed form or enumeration, and draws all randomness from setup.rng(i, j, k). max_particles is the largest pool any prune returns, and every prune returns at most m <= M particles. The start-of-call pool (the previous quotient) is not counted. In general it can exceed M, because cylinders gather over several iterations of one call. In this setup it cannot, since the pool advances in lockstep and every cylinder appears in a single iteration. That pool is also not a prune output, so the paper's per-prune notion of M is honoured. The paths the graded cases never exercise were checked independently. The A > 0 shrinking of m and the m = 0 roulette were run directly on a 9-particle pool, 100k-400k draws per regime, with A in {0, 20, 50, 400, 2000}: the per-prefix expected weight matched Eq. 13 (|z| < 1.9 for every item), and the pps/systematic inclusion frequencies matched pi. The remainder path (never reached here, because is_cylinder = is_member) was checked by reading it against Fig. 1 lines 9-12 and 20-22, and it is correct. The committed runs pass: bigram max_z 2.11, pooled_z 1.21, worst RMSE ratio 0.18; worst case exact with zero variance; max_particles never above M. The notes record the choices for every relevant missing item: pps-floating-point, rng-and-seeds, empty-pool-handling and predicate-implementation. Only minor deviations remain, and all are documented.",
+  "discrepancies": [
+    {
+      "file": "solver.py",
+      "line": 80,
+      "extraction_id": "pps",
+      "page": 7,
+      "description": "Rounding-guard branch of pps: if floating-point error pins as many particles as there are free slots, the remaining positive-weight particles get pi = 0, although Fig. 2 would give them pi > 0. This breaks the HT validity condition (pi_i > 0 wherever W_i > 0) by O(machine eps) of the pool mass. It is reachable only through rounding and is documented in the notes as the pps-floating-point choice. Not exercised in any graded run.",
+      "severity": "minor"
+    },
+    {
+      "file": "solver.py",
+      "line": 100,
+      "extraction_id": "systematic-pps-sampling",
+      "page": 7,
+      "description": "The systematic cumulative sum is rescaled so it ends exactly at the slot count, while the HT weights use the unrescaled pi. Realized inclusion probabilities therefore differ from the pi used in w/pi by a relative error of about 1e-16. This is the extraction's pps-floating-point assumption and is stated in the notes.",
+      "severity": "minor"
+    },
+    {
+      "file": "solver.py",
+      "line": 111,
+      "extraction_id": "twist-is-live",
+      "page": 7,
+      "description": "Twisted weights are hard-coded as W_i = w_i rather than computed as w_i * psi(x_i) (Fig. 2 line 64). This is equivalent here because every child passed in was created only when is_live held (psi = 1), but the prune would be wrong if it were reused with a non-indicator twist. Similarly (lines 157 and 161), children with p(x'|x) = 0 and remainder entries with p(EOS|x) = 0 are not created, where Fig. 1 creates them with weight 0. That changes no weight, mu, m or estimate. Both choices are documented in the notes.",
+      "severity": "minor"
+    }
+  ]
+}

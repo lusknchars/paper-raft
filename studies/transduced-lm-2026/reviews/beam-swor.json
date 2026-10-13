@@ -1,0 +1,33 @@
+{
+  "method": "beam-swor",
+  "reviewed_sha": "f6ce04cd3a2094c9554e4145c6103b7fdf5edbc0",
+  "reviewer_agent": "claude-code:raft-reviewer#beam-swor",
+  "verdict": "verified",
+  "summary": "solver.py follows Fig. 1 (beam_summing) with prune = with_tail_roulette(swor_{M,psi}, kappa) (Fig. 2 lines 40-62, 80-81; Fig. 13; App. B.6), written as a loop over target prefixes. Checked: base case (eps, 1); pool from the previous Q; remainder re-check with is_member; cylinder -> Q and A += w, then continue; member -> R gets w p(EOS|x), A += it, and the particle is still extended; children only where is_live(x x', y<=t) (psi = is_live, so W = w); Z_hat = A of the last call (Eq. 6). swor: if |I+| <= M it keeps the positive-weight children unchanged; otherwise pps (iterative certainty pinning, Eq. 12) feeds a Madow systematic draw and survivors get w/pi (HT, Eq. 10). The systematic code keeps the certain children and runs the design over the rest in the same permuted order with the same u. In exact arithmetic this is the same design as Fig. 2 line 62, and the ceil-difference count is exactly the number of integers k < M in [C_{i-1}-u, C_i-u). Tail roulette: w0 = w at the start of each target-prefix call; children and HT survivors inherit it; the coin flip runs after every prune, including when swor keeps everything; kappa = 0 disables it, which is equivalent to Fig. 13 with kappa = 0 because swor never returns zero weights. The method only estimates: it touches the source only via next_probs_batch and the transducer only via its predicates, uses no closed forms or enumeration, and draws randomness only from setup.rng(i, j, k), so it is deterministic. max_particles is the pool size after prune and roulette. The start-of-call pool is not counted. It is not a prune output, and with this codon transducer every particle in a call has the same length, so all cylinders appear in one iteration and the start pool is at most M anyway (checked: max_particles = M for every bigram target at M = 16). My own checks (scratch scripts, not committed): (a) 20,000 seeds on MVHL with M = 2 and M = 4 gave mean Z_hat/Z = 0.9995 +- 0.0020 and 0.9998 +- 0.0012 against measure.exact_log_z. (b) The roulette path, which the graded cases never fire (kappa = e^-30 is never reached within a 3-base call), is unbiased when forced with kappa = 0.05 and 0.3: means 1.001 +- 0.009 and 0.999 +- 0.046, with 55% and 96% empty runs. (c) Empirical pps/systematic inclusion frequencies match pi to about 2e-3, and sum(pi) = M. The remainder branch is never exercised, because is_cylinder == is_member here; on reading it matches Fig. 1 lines 9-12 and 20-22. method.json notes record the choices for every missing item (pps-floating-point, rng-and-seeds, empty-pool-handling). Only minor numerical and representational deviations remain. The bigram pooled_z = 3.11 passes the grader and is consistent with seed noise, given the independent unbiasedness checks.",
+  "discrepancies": [
+    {
+      "file": "solver.py",
+      "line": 79,
+      "extraction_id": "pps",
+      "page": 7,
+      "description": "Fig. 2 line 53 pins a child when pi_i >= 1. The code pins it at pi_i >= 1 - 1e-12 and sets pi = 1. A child whose true pi is in [1-1e-12, 1) then keeps weight w instead of w/pi, a relative bias of at most 1e-12. This is documented in notes (pps-floating-point, missing) and is negligible.",
+      "severity": "minor"
+    },
+    {
+      "file": "solver.py",
+      "line": 76,
+      "extraction_id": "pps",
+      "page": 7,
+      "description": "Not exercised by the graded cases. When the pinned set reaches m (rest <= 0), the loop breaks without recomputing pi for the free children. Those keep their previous-iteration values, which can be about k*1e-12 > 0 because of the pin tolerance. Fig. 2 would give them pi = 0 (M - |K| = 0). systematic then draws none of them (m_rest = 0), so only the reported pi vector is off, and the effect is a 1e-12-scale truncation of mass. In exact arithmetic (tolerance 0) this case only arises when the free children have zero weight, so it is harmless.",
+      "severity": "minor"
+    },
+    {
+      "file": "solver.py",
+      "line": 168,
+      "extraction_id": "beam-summing",
+      "page": 4,
+      "description": "Not exercised by the graded cases (is_member == is_cylinder here). Fig. 1 line 21 adds the remainder entry (x, w p(EOS|x)) unconditionally. The code adds it only when it is > 0. A zero entry contributes 0 to A now and on every later re-check (zero-mass-convention), so the estimate is unchanged. Only the multiset R differs.",
+      "severity": "minor"
+    }
+  ]
+}

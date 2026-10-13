@@ -1,0 +1,25 @@
+{
+  "method": "beam-summing",
+  "reviewed_sha": "5b4e13b4a6cbe6493f6447541079eccacb64dfb7",
+  "reviewer_agent": "claude-code:raft-reviewer#beam-summing",
+  "verdict": "verified",
+  "summary": "solver.py follows Fig. 1 (lines 1-39) line by line, with the recursion over target prefixes unrolled into a loop over t that keeps the same call order and state. Base case is {(eps,1)} with an empty R. Each call starts from the previous quotient and re-checks the previous remainder entries with is_member, adding their stored weights (which already include the stop factor) to A. A cylinder goes to Q with A += w and `continue`. A member that is not a cylinder adds w*p(EOS|x) to R and A and is still extended. Children are created for every x' with psi = is_live(xx', y_<=t) > 0. Then prune(P', A) runs, and A is appended to Z_hat when the pool empties (Eq. 6). The estimate is Z_hat_|y|. prune_M keeps the min(M,N) heaviest with a stable sort. prune_tau keeps the smallest prefix k with W_k >= (1-tau)W_N, using an exact comparison, which matches the documented prune-sort-ties assumption. tau = setup.tau = 1e-3. No RNG is drawn and every seed slot holds the same value. The source is used only through next_probs_batch (setup.source.alphabet is a public attribute) and the transducer only through its predicates. There are no closed forms and no use of _start/_trans/_max_len. Every `missing` item it relies on (prune-sort-ties, tail-roulette-for-beam-summing, m-meaning-per-method, predicate-implementation) is recorded in notes. I checked independently: the committed runs pass (worst: |log error| <= 8e-13 against Eq. 49 with equality, max_particles <= M; bigram: matches measure.py's own Fig. 1 run exactly, share < 1). I ran the remainder code path, which the graded cases never exercise, with a test transducer whose is_cylinder is always False, so every member goes through R and the cross-call re-check. Against a brute-force precover sum (bigram source capped at 6 bases, targets MV/KS/LL, zero-weight children filtered), every Z_hat_t matched to 4e-16 relative. Only minor, unexercised points remain (see discrepancies).",
+  "discrepancies": [
+    {
+      "file": "solver.py",
+      "line": 121,
+      "extraction_id": "beam-summing",
+      "page": 4,
+      "description": "Children are created whenever psi > 0 even when p(x'|x) = 0. This is literal Fig. 1 line 23, so it is not a deviation, but without the tail-roulette decorator (which skips w = 0) nothing ever removes zero-weight particles. If a transducer has members that are not cylinders and the source has finite support (p = [0,0,0,0,1] after max_len), zero-weight live members are extended forever: the pool never empties and memory grows without bound (seen in a test with a no-cylinder transducer and the identity prune; prune_tau keeps one zero-weight particle when the whole child pool has mass 0, and prune_M keeps them while there is room). This cannot happen in the graded cases, because is_cylinder == is_member, so every particle becomes a cylinder within 3 extensions. measure.py's reference skips p = 0 children. Unexercised path; minor.",
+      "severity": "minor"
+    },
+    {
+      "file": "solver.py",
+      "line": 123,
+      "extraction_id": "m-meaning-per-method",
+      "page": 6,
+      "description": "max_particles counts only prune outputs, not the start-of-call pool, which is the quotient Q collected across all iterations of the previous call. For a general transducer, Q can collect cylinders from several prune outputs and exceed M under prune_M, so the next call's first pass would process more than M particles. In this setup, every particle in a call has the same length and all of them become cylinders in the same pass, so Q is a subset of one prune output (at most M), and the reported value is honest. The notes' claim that it 'never exceeds M' holds for this transducer, not in general. Zero-weight children kept by prune_M would also count toward max_particles (none arise in the graded cases). Minor.",
+      "severity": "minor"
+    }
+  ]
+}
