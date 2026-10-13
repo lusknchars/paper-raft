@@ -30,6 +30,7 @@ def test_run_one_writes_valid_files(tiny_git_study):
     ("broken", "def solve(s):\n    raise RuntimeError('boom')\n", "RuntimeError: boom"),
     ("nan", "import numpy as np\ndef solve(s):\n    return {'y': np.full(s.n, np.nan)}\n", "measure: non-finite values in y"),
     ("shape", "import numpy as np\ndef solve(s):\n    return {'y': np.zeros(s.n + 1)}\n", "measure: y has shape"),
+    ("none", "def solve(s):\n    return None\n", "measure: TypeError"),
     ("peeker", "import json\nREF = 'reference.json'\ndef solve(s):\n    return {}\n", "guard: solver.py:2: string mentions 'reference.json'"),
     ("tamper", "from pathlib import Path\ndef solve(s):\n    (Path(__file__).parents[2] / ('prob' + 'lem') / 'x.txt').write_text('x')\n"
                "    import numpy as np\n    return {'y': np.linspace(0, 1, s.n) ** 2}\n", "problem/ was modified during the run"),

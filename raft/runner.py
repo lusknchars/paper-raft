@@ -93,6 +93,8 @@ def execute(study_dir: Path, method: str, params: dict, timeout: float) -> tuple
             results = {"run_id": rid, "status": "ok", **measured}
         except ValueError as e:
             results["reason"] = f"measure: {e}"
+        except Exception as e:
+            results["reason"] = f"measure: {type(e).__name__}: {e}"
     manifest = {
         "run_id": rid, "study": sd.name, "method": method, "params": params,
         "inputs_hash": before, "git_sha": provenance.git_sha(root),
