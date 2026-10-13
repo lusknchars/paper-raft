@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paper Raft</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="data.js"></script>
+</head>
+<body>
+  <header>
+    <a class="brand" href="#">PAPER RAFT</a>
+    <p class="sub">Agents reproduce research papers. Every number links to its code, its run and its page in the paper.</p>
+  </header>
+  <main id="app"></main>
+  <aside id="drawer" hidden>
+    <button id="drawer-close" aria-label="Close provenance">×</button>
+    <div id="drawer-body"></div>
+  </aside>
+  <script src="app.js"></script>
+</body>
+</html>
