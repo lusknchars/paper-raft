@@ -39,3 +39,5 @@ canvas.heat { width: 100%; aspect-ratio: 1; image-rendering: pixelated; display:
 #drawer-close { float: right; }
 pre { white-space: pre-wrap; word-break: break-all; background: var(--bg); padding: 8px; border-radius: 4px; }
 .warn { color: var(--warn); }
+
+.experiment { max-width: 75ch; line-height: 1.5; }

@@ -5,6 +5,10 @@ const COLORS = ["#7aa2ff", "#ffb86b", "#7ee0a1", "#ff7a90", "#c792ea", "#5fd7d7"
 const AXIS = { ticks: { color: "#8b9099" }, grid: { color: "#24272d" } };
 let charts = [];
 
+function safeUrl(u) {
+  return typeof u === "string" && /^https:\/\//.test(u) ? u : null;
+}
+
 function el(tag, attrs = {}, ...kids) {
   const n = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs)) {
@@ -58,7 +62,10 @@ function studyNav(study) {
       el("a", { href: `#study/${study.id}/extraction` }, "extraction")),
     el("h2", {}, study.paper.title || study.id),
     el("p", { class: "muted" }, study.reference.citation, " · ",
-      el("a", { href: `https://doi.org/${study.reference.doi}`, target: "_blank", rel: "noopener" }, "DOI")),
+      el("a", { href: `https://doi.org/${study.reference.doi}`, target: "_blank", rel: "noopener" }, "DOI"),
+      safeUrl(study.paper.brief_url) && [" · ",
+        el("a", { href: study.paper.brief_url, target: "_blank", rel: "noopener" }, "Read the brief on Paperraft")]),
+    study.paper.experiment && el("p", { class: "experiment" }, study.paper.experiment),
   ];
 }
 
