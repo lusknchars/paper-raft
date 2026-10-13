@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Extraction: implementable facts from a paper, each with a page",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["study", "items"],
+  "properties": {
+    "study": {"type": "string", "minLength": 1},
+    "extractor_agent": {"type": "string"},
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "text", "page", "quote", "missing"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "kind": {"enum": ["method", "equation", "parameter", "boundary_condition", "result"]},
+          "text": {"type": "string", "minLength": 1},
+          "page": {"type": "integer", "minimum": 1},
+          "quote": {"type": "string"},
+          "missing": {"type": "boolean"},
+          "assumption": {"type": "string", "minLength": 1}
+        },
+        "if": {"properties": {"missing": {"const": true}}},
+        "then": {"required": ["assumption"]}
+      }
+    }
+  }
+}

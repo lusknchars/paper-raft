@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Run manifest: everything needed to rerun",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["run_id", "study", "method", "params", "inputs_hash", "git_sha", "method_sha", "dirty",
+               "python", "packages", "seed", "started_at", "duration_s", "repro_rtol"],
+  "properties": {
+    "run_id": {"type": "string", "minLength": 1},
+    "study": {"type": "string"},
+    "method": {"type": "string"},
+    "params": {"type": "object", "additionalProperties": {"type": ["number", "string"]}},
+    "inputs_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "git_sha": {"type": "string"},
+    "method_sha": {"type": ["string", "null"]},
+    "dirty": {"type": "boolean"},
+    "python": {"type": "string"},
+    "packages": {"type": "object", "additionalProperties": {"type": "string"}},
+    "seed": {"type": "integer"},
+    "started_at": {"type": "string"},
+    "duration_s": {"type": "number", "minimum": 0},
+    "repro_rtol": {"type": "number", "exclusiveMinimum": 0}
+  }
+}

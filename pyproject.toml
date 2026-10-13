@@ -1,0 +1,24 @@
+[project]
+name = "paper-raft"
+version = "0.1.0"
+description = "Agents reproduce research papers in a controlled environment."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26", "scipy>=1.11", "jsonschema>=4.21", "pyyaml>=6.0"]
+
+[project.scripts]
+raft = "raft.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["raft"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

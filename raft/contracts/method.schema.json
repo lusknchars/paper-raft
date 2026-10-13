@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Method: which extraction items an implementation covers",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "implements", "author_agent"],
+  "properties": {
+    "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "implements": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "author_agent": {"type": "string", "minLength": 1},
+    "notes": {"type": "string"}
+  }
+}

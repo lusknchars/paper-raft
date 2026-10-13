@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Run results: samples, errors vs reference, status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["run_id", "status", "samples", "errors", "tolerance", "pass"],
+  "$defs": {
+    "series": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
+      }
+    },
+    "grid2d": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}}
+  },
+  "properties": {
+    "run_id": {"type": "string"},
+    "status": {"enum": ["ok", "failed"]},
+    "reason": {"type": "string", "minLength": 1},
+    "samples": {"oneOf": [{"$ref": "#/$defs/series"}, {"type": "null"}]},
+    "reference_samples": {"$ref": "#/$defs/series"},
+    "errors": {"oneOf": [{"type": "object", "additionalProperties": {"type": "number"}}, {"type": "null"}]},
+    "tolerance": {"type": ["number", "null"]},
+    "pass": {"type": "boolean"},
+    "fields_coarse": {"type": "object", "additionalProperties": {"$ref": "#/$defs/grid2d"}}
+  },
+  "if": {"properties": {"status": {"const": "failed"}}},
+  "then": {
+    "required": ["reason"],
+    "properties": {"samples": {"type": "null"}, "errors": {"type": "null"}, "pass": {"const": false}}
+  },
+  "else": {
+    "properties": {"samples": {"type": "object"}, "errors": {"type": "object"}, "tolerance": {"type": "number"}}
+  }
+}
