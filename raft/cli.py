@@ -1,10 +1,9 @@
-"""raft: extract | implement | run | review | repro | compare."""
+"""raft: new | extract | implement | run | review | repro | compare."""
 import argparse
 import sys
 from pathlib import Path
 
-from . import briefs, paths, runner, validate
-
+from . import briefs, paths, runner, scaffold, validate
 
 def _value(text: str):
     for cast in (int, float):
@@ -35,7 +34,7 @@ def _params(rest: list[str]) -> dict:
 
 
 # Options raft itself understands; every other --key [value] is a study parameter.
-KNOWN = {"--all", "--timeout", "--study", "--validate", "--out", "--help", "-h"}
+KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out", "--title", "--doi", "--help", "-h"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -62,11 +61,56 @@ def _report(problems: list[str], ok: str) -> int:
     return 0
 
 
+def _study_cmd(p, args, root: Path, study: str, params: dict) -> int:
+    sd = root / "studies" / study
+    if args.cmd == "extract":
+        if args.validate:
+            return _report(validate.extraction(sd), f"{study}/extraction.json is valid")
+        print(briefs.render(root, "extractor", study))
+        return 0
+    if args.cmd == "implement":
+        print(briefs.render(root, "implementer", study, args.method))
+        return 0
+    if args.cmd == "review":
+        if args.validate:
+            return _report(validate.methods_and_reviews(sd), f"{study}: method.json files and reviews are valid")
+        if not args.method:
+            p.error("review needs a method name, or --validate")
+        print(briefs.render(root, "reviewer", study, args.method))
+        return 0
+    if args.cmd == "repro":
+        return _report(runner.repro(sd, params, args.timeout), f"{study}: every matching run reproduced")
+    if args.all == bool(args.method):
+        p.error("give one method name or --all")
+    names = runner.methods(sd) if args.all else [args.method]
+    if not names:
+        if args.all_studies:
+            print(f"• {study}: no methods yet")
+            return 0
+        raise SystemExit(f"raft: no methods in {sd / 'methods'} yet")
+    try:
+        combos = runner.expand(sd, params)
+    except ValueError as e:
+        if args.all_studies:
+            print(f"✗ {study}: {e}")
+            return 1
+        raise SystemExit(f"raft: {e}") from None
+    for name in names:
+        for combo in combos:
+            print(runner.summary(*runner.run_one(sd, name, combo, args.timeout)), flush=True)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--study", help="study folder under studies/ (default: the only one)")
+    common.add_argument("--all-studies", action="store_true", help="repeat for every study that is not a draft")
     p = argparse.ArgumentParser(prog="raft", description="Reproduce research papers with agents, in a controlled environment.")
     sub = p.add_subparsers(dest="cmd", required=True)
+    n = sub.add_parser("new", help="start a new study folder (a draft until problem/ is filled in)")
+    n.add_argument("study_id")
+    n.add_argument("--title", required=True)
+    n.add_argument("--doi", required=True)
     e = sub.add_parser("extract", parents=[common], help="print the extractor brief, or --validate extraction.json")
     e.add_argument("--validate", action="store_true")
     im = sub.add_parser("implement", parents=[common], help="print the implementer brief for one method")
@@ -88,6 +132,12 @@ def main(argv: list[str] | None = None) -> int:
         p.error(f"unrecognized arguments: {' '.join(rest)}")
     root = paths.repo_root()
 
+    if args.cmd == "new":
+        d = scaffold.new_study(root, args.study_id, args.title, args.doi)
+        print(f"✓ created {d.relative_to(root)} as a draft. Next: fill in problem/setup.py, problem/measure.py and "
+              f"problem/reference.json, put the PDF at papers/{args.study_id}.pdf, delete `draft: true` from "
+              f"paper.yaml, then run `uv run raft extract --study {args.study_id}`.")
+        return 0
     if args.cmd == "compare":
         from . import compare
         out = Path(args.out) if Path(args.out).is_absolute() else root / args.out
@@ -95,37 +145,20 @@ def main(argv: list[str] | None = None) -> int:
         print(f"✓ site written to {out}. Open {out / 'index.html'}")
         return 0
 
-    study = paths.resolve_study(root, args.study)
-    sd = root / "studies" / study
-    if args.cmd == "extract":
-        if args.validate:
-            return _report(validate.extraction(sd), f"{study}/extraction.json is valid")
-        print(briefs.render(root, "extractor", study))
-        return 0
-    if args.cmd == "implement":
-        print(briefs.render(root, "implementer", study, args.method))
-        return 0
-    if args.cmd == "review":
-        if args.validate:
-            return _report(validate.methods_and_reviews(sd), f"{study}: method.json files and reviews are valid")
-        if not args.method:
-            p.error("review needs a method name, or --validate")
-        print(briefs.render(root, "reviewer", study, args.method))
-        return 0
-
     params = _params(rest)
-    if args.cmd == "repro":
-        return _report(runner.repro(sd, params, args.timeout), "every matching run reproduced")
-    if args.all == bool(args.method):
-        p.error("give one method name or --all")
-    names = runner.methods(sd) if args.all else [args.method]
-    if not names:
-        raise SystemExit(f"raft: no methods in {sd / 'methods'} yet")
-    try:
-        combos = runner.expand(sd, params)
-    except ValueError as e:
-        raise SystemExit(f"raft: {e}") from None
-    for name in names:
-        for combo in combos:
-            print(runner.summary(*runner.run_one(sd, name, combo, args.timeout)), flush=True)
-    return 0
+    if args.all_studies:
+        single = (args.cmd == "implement" or (args.cmd in ("extract", "review") and not args.validate)
+                  or (args.cmd == "run" and not args.all) or args.study)
+        if single:
+            p.error("--all-studies works with: extract --validate, review --validate, run --all, repro (and not with --study)")
+        targets = paths.studies(root)
+        if not targets:
+            raise SystemExit("raft: no studies yet (drafts are skipped)")
+    else:
+        targets = [paths.resolve_study(root, args.study)]
+    code = 0
+    for study in targets:
+        if args.all_studies:
+            print(f"── {study}")
+        code = max(code, _study_cmd(p, args, root, study, params))
+    return code

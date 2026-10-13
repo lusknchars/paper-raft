@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from . import runner, schema
+from . import paths, runner, schema
 from .status import derive_status
 
 SITE_FILES = ("index.html", "app.js", "style.css")
@@ -43,7 +43,7 @@ def _code_url(url, manifest, root: Path, sd: Path, name: str):
 def build(root: Path, repo: str | None) -> dict:
     root = Path(root).resolve()
     data = {"generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "repo_url": repo, "studies": []}
-    for sd in sorted(p for p in (root / "studies").iterdir() if (p / "paper.yaml").is_file()):
+    for sd in (root / "studies" / s for s in paths.studies(root)):
         reference = schema.load("reference", sd / "problem" / "reference.json")
         headline = getattr(runner.load_module(sd / "problem" / "setup.py", f"raft_compare_{sd.name}"), "HEADLINE", {})
         methods = []
