@@ -62,9 +62,9 @@ function studyNav(study) {
       el("a", { href: `#study/${study.id}/extraction` }, "extraction")),
     el("h2", {}, study.paper.title || study.id),
     el("p", { class: "muted" }, study.reference.citation, " · ",
-      el("a", { href: `https://doi.org/${study.reference.doi}`, target: "_blank", rel: "noopener" }, "DOI"),
+      el("a", { href: `https://doi.org/${study.reference.doi}`, target: "_blank", rel: "noopener noreferrer" }, "DOI"),
       safeUrl(study.paper.brief_url) && [" · ",
-        el("a", { href: study.paper.brief_url, target: "_blank", rel: "noopener" }, "Read the brief on Paperraft")]),
+        el("a", { href: study.paper.brief_url, target: "_blank", rel: "noopener noreferrer" }, "Read the brief on Paperraft")]),
     study.paper.experiment && el("p", { class: "experiment" }, study.paper.experiment),
   ];
 }
@@ -100,7 +100,7 @@ function compareView(study) {
       const datasets = has.map((r) => {
         const color = COLORS[ok.indexOf(r) % COLORS.length];
         return { label: r.m.name, data: r.run.results.samples[key].map(([x, y]) => ({ x, y })),
-          borderColor: color, backgroundColor: color, showLine: true, pointRadius: 2, borderWidth: 1.5 };
+          borderColor: color, backgroundColor: color, showLine: true, pointRadius: r.run.results.samples[key].length > 40 ? 0 : 2, borderWidth: 1.5 };
       });
       const ref = has[0].run.results.reference_samples?.[key];
       if (ref) datasets.push({ label: "paper", data: ref.map(([x, y]) => ({ x, y })), borderColor: "#e6e6e6",

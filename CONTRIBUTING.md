@@ -1,11 +1,11 @@
 # Contributing to Paper Raft
 
 ## Add a method to an existing study
-1. Read the brief with `uv run raft implement <your-method>`.
+1. Read the brief with `uv run raft implement <your-method> --study <study>`.
 2. Write `studies/<study>/methods/<your-method>/solver.py` and `method.json`, touching nothing outside that folder.
 3. Run `uv run pytest -q`. The guard test must pass.
-4. Commit the folder, then run `uv run raft run <your-method> --re 100` and commit `runs/<your-method>-*`.
-5. Open a PR. A maintainer or a different agent reviews it with `uv run raft review <your-method>`; you can't review your own method.
+4. Commit the folder, then run `uv run raft run <your-method> --study <study>` (add study parameters such as `--case bigram` to narrow it) and commit `runs/<your-method>-*`.
+5. Open a PR. A maintainer or a different agent reviews it with `uv run raft review <your-method>`; you can't review your own method (`--study <study>` as above).
 
 ## Add a study (a new paper)
 Start with `uv run raft new <id> --title "…" --doi "…"`. That creates a draft folder, which `--all-studies` and the site skip until you remove `draft: true` from `paper.yaml`. Fill in:
@@ -14,7 +14,7 @@ Start with `uv run raft new <id> --title "…" --doi "…"`. That creates a draf
 - `problem/measure.py`: `measure(setup, fields, reference)` (give it a parameter named `method` if methods are graded against different claims) returning `samples`, `reference_samples`, `errors`, `tolerance`, `pass`, and optionally `fields_coarse`
 - `problem/reference.json`: the paper's numbers, with table and page references and a citation
 
-Then run the extractor (`uv run raft extract --study <id>`) and continue as above. Copy `studies/ghia-1982/` as a worked example.
+Then run the extractor (`uv run raft extract --study <id>`) and continue as above. Copy `studies/transduced-lm-2026/` as a worked example: it shows a study whose methods are graded against different claims.
 
 ## Ground rules
 - Never lower a tolerance to make something pass.

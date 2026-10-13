@@ -128,11 +128,10 @@ The Ghia PDF did not arrive, so it is parked as a draft. At the owner's request,
 - **Cases.**
   - `worst`: Appendix E, a uniform source with the target isoleucine × 100. The answer is known in closed form.
   - `bigram`: a stand-in DNA bigram and three length-10 targets, with exact answers from Appendix D path sums. This case is the headline result.
-- **Grading is by claim, per method** (`measure` takes the method name):
-  - `exact`, for the worst case
-  - `top_m_share`, for beam search in the worst case
-  - `unbiased`: within 4 standard errors over 64 seeds, and the error falls with M
-  - `lower_bound`, for prune_τ
+- **Grading is by claim, per method** (`measure` takes the method name; folders are hyphenated, e.g. `smc-rb`, and `smc-rb-2` is graded as `smc-rb`). Every claim except `lower_bound` also needs `max_particles ≤ M`.
+  - `exact` and `top_m_share`, for the worst case: within 1e-9 in log of the closed form, or of min(M, ∏ d_t) · 4^-3T for beam search.
+  - `unbiased`, on 128 seeds (8 in the worst case). Each (target, M) cell must have its seed mean of Ẑ/Z within 1e-9 of 1 or within 4 standard errors; a pooled test over all cells must also be within 4. RMSE must fall from the smallest M to the largest. In the bigram case the between-seed std of Ẑ/Z must exceed 1e-3, so that an exact computation does not pass as an estimator.
+  - `lower_bound`, for prune_τ: Ẑ ≤ Z, and Ẑ must match the yardstick's own run of Fig. 1 within 1e-4.
 - **Display only.** Table 2's numbers come from the paper's own unnamed corpus and targets. They are shown for the ordering of methods and never graded.
 - **Honesty rule.** The study page states plainly what is not covered: the WikiText-2/PTB text experiments, GPT-2, and the paper's exact Table 2 values.
 - **Linking.** `paper.yaml` carries `brief_url`, and the results explorer links to the brief. The brief in ai-radar links back to the lab, through a pull request on that repo. Nothing is deployed to Vercel without the owner's consent.

@@ -24,3 +24,20 @@ references:
     end: 411
     year: 1982
     doi: "10.1016/0021-9991(82)90058-4"
+  - type: article
+    title: "Stochastic Estimation of Transduced Language Models"
+    authors:
+      - family-names: Snæbjarnarson
+        given-names: Vésteinn
+      - family-names: Kiegeland
+        given-names: Samuel
+      - family-names: de Prada Corral
+        given-names: Manuel
+      - family-names: Cotterell
+        given-names: Ryan
+      - family-names: Vieira
+        given-names: Tim
+    year: 2026
+    doi: "10.48550/arXiv.2608.27428"
+    url: "https://arxiv.org/abs/2608.27428"
+    license: CC-BY-SA-4.0

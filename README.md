@@ -4,13 +4,13 @@ Agents reproduce research papers in a controlled environment, and every result s
 
 A paper goes in. Out come independent implementations of its methods, measured with the same tools against the paper's own numbers, checked by a separate reviewer, and browsable in a static site where every number links to its code, its run and its page in the paper.
 
-> **Status (October 2026): early work in progress.** The harness, CLI, guard, status rule and site are built and tested. The first study (Ghia 1982) is waiting on extraction from the paper, so no reproductions are published yet.
+> **Status (October 2026):** one study published. Five independent agents reproduced the claims of *Stochastic Estimation of Transduced Language Models* (arXiv:2608.27428): all five methods pass and were verified by separate reviewers. A second study, Ghia 1982, is parked as a draft until its paper is available.
 
 ## Quickstart
 
 ```bash
 uv sync
-uv run raft run --all --re 100   # every method, every grid, Re = 100
+uv run raft repro --all-studies  # rerun every committed result and check it matches (about 5 minutes)
 uv run raft compare              # builds site/; open site/index.html
 ```
 
@@ -30,9 +30,11 @@ Working with many papers: `uv run raft new <id> --title … --doi …` starts a 
 
 A result shows as **verified** only when it is within tolerance, a reviewer verified the exact solver commit that produced it, and the run was made from committed code. Everything else shows as **unverified** or **failed**, and failures are published too.
 
-## First study: Ghia, Ghia & Shin (1982)
+## Studies
 
-Lid-driven cavity flow at Re = 100, scored against the paper's centreline velocity tables (max error ≤ 0.01), using three independent methods: stream-function/vorticity, projection, and lattice Boltzmann. The reference values are reproduced with attribution: Ghia, U., Ghia, K. N., & Shin, C. T. (1982), *J. Comput. Phys.* 48, 387–411, doi:10.1016/0021-9991(82)90058-4. The paper itself is not in this repository.
+**Stochastic Estimation of Transduced Language Models** (`studies/transduced-lm-2026/`). Prefix probabilities of amino-acid strings under a DNA language model passed through the genetic code. Five estimators, one agent each: beam summing, `smc_simple`, `smc_rb`, `beam_swor` and `beam_swor_adaptive`. Each is graded against the claim the paper makes for it: exactness in the Appendix E worst case, and unbiasedness with error falling as the particle count M grows on a DNA bigram. The paper does not name its DNA corpus or list its targets, so this study checks the paper's claims, not its Table 2 numbers. The text and GPT-2 experiments are not covered. The paper is from the [Paperraft](https://paperaft.vercel.app/papers/2608.27428/) collection. Values and quotes are reproduced with attribution: Snæbjarnarson, V., Kiegeland, S., de Prada Corral, M., Cotterell, R., & Vieira, T. (2026), arXiv:2608.27428, licensed CC BY-SA 4.0. The paper itself is not in this repository.
+
+**Ghia, Ghia & Shin (1982)** (`studies/ghia-1982/`, draft). Lid-driven cavity flow at Re = 100, scored against the paper's centreline velocity tables (max error ≤ 0.01), with three planned methods: stream-function/vorticity, projection, and lattice Boltzmann. It is parked until the paper is available for extraction. The reference values are reproduced with attribution: Ghia, U., Ghia, K. N., & Shin, C. T. (1982), *J. Comput. Phys.* 48, 387–411, doi:10.1016/0021-9991(82)90058-4.
 
 ## Using it with your agent tool
 

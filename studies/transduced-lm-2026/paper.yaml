@@ -16,4 +16,8 @@ experiment: >-
   with M, beam summing is a lower bound, exactness in the worst case), not its Table 2 numbers. The text
   (WikiText-2 + PTB tokenizer) and GPT-2 experiments are not covered. With the genetic code every covering
   prefix is already a cylinder, so the remainder is always empty: the code paths for remainder entries and
-  their stop weights are not exercised here.
+  their stop weights are not exercised here. Nor are the tail roulette for the beam estimators, or
+  beam_swor_adaptive's budget shrinking and its m = 0 roulette (with ε = 0 the running total is 0 at every
+  prune, so it behaves exactly like beam_swor, as the paper notes for DNA). Reviewers tested those paths with
+  their own scripts, outside the graded runs. Method folders: beam-summing, smc-simple, smc-rb, beam-swor,
+  beam-swor-adaptive.
