@@ -161,7 +161,7 @@ def test_unbiased_claim():
     assert not _grade("bigram", "smc-simple", flat)["pass"]  # error does not fall with M
     exact = np.broadcast_to(_exact(s)[:, None, None], _shape(s))
     r = _grade("bigram", "smc-rb", exact + 1e-13)
-    assert not r["pass"] and r["errors"]["min_sd_log_z"] <= 1e-6  # computing the answer is not estimating it
+    assert not r["pass"] and r["errors"]["min_sd_log_z"] <= 1e-3  # computing the answer is not estimating it
 
 
 def test_unbiased_exact_up_to_rounding_passes_in_the_worst_case():

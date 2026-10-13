@@ -43,7 +43,9 @@
         "beam-swor-adaptive": 0.062
       },
       "require_spread": true,
-      "beam_rtol": 0.0001
+      "beam_rtol": 0.0001,
+      "min_spread": 0.001,
+      "min_spread_note": "Smallest allowed between-seed std of log Ẑ in any cell: an estimator varies with the seed (real ones show ≥ 0.018 here); an exact computation does not."
     }
   }
 }

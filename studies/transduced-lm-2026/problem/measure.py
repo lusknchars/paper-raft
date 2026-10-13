@@ -168,7 +168,7 @@ def measure(setup, fields, reference: dict, method: str) -> dict:
         passed = passed and errors["max_z"] <= tolerance and errors["pooled_z"] <= tolerance and all(shrinks)
         if case.get("require_spread"):
             errors["min_sd_log_z"] = _finite(float(np.nan_to_num(sd_log, nan=0.0).min()))
-            passed = passed and errors["min_sd_log_z"] > 1e-6
+            passed = passed and errors["min_sd_log_z"] > float(case["min_spread"])
         for i in range(len(setup.targets)):
             samples[f"rel_rmse_t{i + 1}"] = _pairs(m, rmse[i])
             samples[f"sd_log_z_t{i + 1}"] = _pairs(m, np.nan_to_num(sd_log[i], nan=1e300))
