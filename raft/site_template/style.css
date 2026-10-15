@@ -41,3 +41,6 @@ pre { white-space: pre-wrap; word-break: break-all; background: var(--bg); paddi
 .warn { color: var(--warn); }
 
 .experiment { max-width: 75ch; line-height: 1.5; }
+
+.flow-box { height: 640px; margin: 16px 0; }
+@media (max-width: 719px) { .flow-box { height: 560px; } }

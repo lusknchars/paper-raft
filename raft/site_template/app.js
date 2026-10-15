@@ -24,7 +24,32 @@ const fmt = (x) => (x == null ? "—" : x !== 0 && Math.abs(x) < 1e-3 ? x.toExpo
 const badge = (s) => el("span", { class: "badge " + s.replace(" ", "-") }, s);
 const same = (a, b) => String(a) === String(b);
 
-function clear() { charts.forEach((c) => c.destroy()); charts = []; }
+let flowHandle = null;
+function clear() {
+  charts.forEach((c) => c.destroy()); charts = [];
+  if (flowHandle) { flowHandle.destroy(); flowHandle = null; }
+}
+
+function mountFlowInto(box, data, opts) {
+  import("./flow/flow.js")
+    .then((m) => { if (box.isConnected) flowHandle = m.mountFlow(box, data, opts); })
+    .catch(() => box.replaceChildren(el("p", { class: "muted" },
+      "The flow view needs the site served over http (for example `uv run raft watch`).")));
+}
+
+function draftsAsOthers() {
+  return Object.values(D.flows || {}).filter((f) => f.paper.draft)
+    .map((f) => ({ title: f.paper.title, note: "draft · nothing extracted yet" }));
+}
+
+function flowView(id) {
+  const data = D.flows[id];
+  const study = D.studies.find((s) => s.id === id);
+  app.append(...(study ? studyNav(study) : [el("nav", {}, el("a", { href: "#" }, "← all studies")), el("h2", {}, data.paper.title)]));
+  const box = el("div", { class: "flow-box" });
+  app.append(box);
+  mountFlowInto(box, data, {});
+}
 
 function route() {
   clear();
@@ -32,12 +57,20 @@ function route() {
   if (!D) { app.append(el("p", {}, "No data.js found. Run `uv run raft compare` first.")); return; }
   const [view, id, sub] = location.hash.slice(1).split("/");
   const study = D.studies.find((s) => s.id === id);
-  if (view === "study" && study) (sub === "extraction" ? extractionView : compareView)(study);
+  if (view === "flow" && D.flows && D.flows[id]) flowView(id);
+  else if (view === "study" && study) (sub === "extraction" ? extractionView : compareView)(study);
   else overview();
 }
 
 function overview() {
   if (!D.studies.length) { app.append(el("p", {}, "No studies yet.")); return; }
+  const head = D.flows && D.flows[D.studies[0].id];
+  if (head) {
+    const box = el("div", { class: "flow-box" });
+    app.append(el("p", { class: "muted" }, "How the headline study is built, from the paper to the runs. ",
+      el("a", { href: `#flow/${D.studies[0].id}` }, "Open the flow")), box);
+    mountFlowInto(box, head, { others: draftsAsOthers() });
+  }
   for (const s of D.studies) {
     app.append(el("a", { class: "card", href: `#study/${s.id}` },
       el("h2", {}, s.paper.title || s.id),
@@ -59,6 +92,7 @@ function studyNav(study) {
   return [
     el("nav", {}, el("a", { href: "#" }, "← all studies"), " · ",
       el("a", { href: `#study/${study.id}` }, "results"), " · ",
+      el("a", { href: `#flow/${study.id}` }, "flow"), " · ",
       el("a", { href: `#study/${study.id}/extraction` }, "extraction")),
     el("h2", {}, study.paper.title || study.id),
     el("p", { class: "muted" }, study.reference.citation, " · ",

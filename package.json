@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "description": "Dev-only: headless check of the flow view (scripts/check_flow.mjs)",
+  "type": "module",
+  "devDependencies": { "playwright": "1.63.0" }
+}
