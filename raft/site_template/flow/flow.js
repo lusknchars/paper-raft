@@ -125,7 +125,7 @@ export function mountFlow(root, data, opts = {}) {
   if (!reduce) { canvas.style.opacity = "0"; requestAnimationFrame(() => requestAnimationFrame(() => { canvas.style.opacity = "1"; })); }
 
   let W = 0, H = 0, cables = [], rows = [], heads = {}, methodEls = {};
-  let progress = {}, liveRun = null, raf = 0, timer = null;
+  let progress = {}, liveRun = null, raf = 0, timer = null, destroyed = false;
 
   function cable(a, b, o, rnd) {
     const dx = (b.x - a.x) * (0.45 + rnd() * 0.15);
@@ -137,25 +137,29 @@ export function mountFlow(root, data, opts = {}) {
     W = stage.clientWidth; H = stage.clientHeight;
     labels.replaceChildren(); cables = []; rows = []; heads = {}; methodEls = {};
     const rnd = seeded(2608), phone = W < 720, top = phone ? 58 : 70, bottom = H - 14;
-    const X = phone ? [W * 0.12, W * 0.34, W * 0.56, W * 0.7] : [W * 0.17, W * 0.38, W * 0.58, W * 0.74];
+    const X = phone ? [W * 0.10, W * 0.30, W * 0.50, W * 0.60] : [W * 0.17, W * 0.38, W * 0.58, W * 0.74];
     const put = (el, x, y) => { el.style.left = x + "px"; el.style.top = y + "px"; labels.append(el); return el; };
 
-    for (const [key, title, x] of [["paper", "paper", Math.max(60, X[0] - W * 0.08)], ["implemented", "extracted → implemented", X[1]],
-      ["methods", "methods verified", X[2]], ["runs", "runs", Math.min(W - 70, X[3] + 60)]]) {
+    const headDefs = [["paper", "paper", "paper", Math.max(60, X[0] - W * 0.08)],
+      ["implemented", "extracted → implemented", "implemented", X[1]],
+      ["methods", "methods verified", "verified", X[2]], ["runs", "runs", "runs", Math.min(W - 70, X[3] + 60)]];
+    headDefs.forEach(([key, title, short, x], i) => {
       const d = h("div", "rf-head"); d.dataset.rf = key;
-      d.append(h("div", "t", title), h("div", "p", "—"), h("div", "s", ""));
+      d.append(h("div", "t", phone ? short : title), h("div", "p", "—"), h("div", "s", ""));
+      const gap = Math.min(...[headDefs[i - 1], headDefs[i + 1]].filter(Boolean).map((o) => Math.abs(o[3] - x)));
       heads[key] = put(d, x, 4);
-    }
+      if (phone) heads[key].style.maxWidth = Math.max(30, gap - 4) + "px";
+    });
 
     const py = top + (bottom - top) * 0.45;
     const paper = h("div", "rf-paper", data.paper.title);
     paper.append(h("small", null, draft ? "draft · nothing extracted yet" : data.paper.authors_short));
-    put(paper, 8, py - 36).style.maxWidth = (X[0] - 12) + "px";
+    put(paper, 8, py - 36).style.maxWidth = (phone ? W * 0.45 : X[0] - 12) + "px";
     cable({ x: 8, y: py }, { x: X[0], y: py }, { color: PAPER, lead: true, layer: 0 }, rnd);
     (opts.others || []).forEach((o, i) => {
       const oy = Math.min(bottom - 20, py + 80 + i * 56);
       const d = h("div", "rf-paper rf-other", o.title); d.append(h("small", null, o.note));
-      put(d, 8, oy - 36).style.maxWidth = (X[0] - 12) + "px";
+      put(d, 8, oy - 36).style.maxWidth = (phone ? W * 0.45 : X[0] - 12) + "px";
       cable({ x: 8, y: oy }, { x: X[0], y: oy }, { color: PAPER, lead: true, dim: true, layer: 0 }, rnd);
     });
     if (draft) return;
@@ -176,7 +180,7 @@ export function mountFlow(root, data, opts = {}) {
         y += gap;
       }
     }
-    if (phone) nodes.forEach((n) => put(h("div", "rf-kind", n.kind.replace("_", " ")), X[1] + 6, n.y - 7));
+    if (phone) nodes.forEach((n) => put(h("div", "rf-kind", n.kind.replace("_", " ")), X[1] + 6, n.y - 7).style.maxWidth = (X[2] - X[1] - 10) + "px");
     const strands = phone ? 3 : data.items.length > 200 ? 1 : 2;
     for (const n of nodes) for (let s = 0; s < strands; s++)
       cable({ x: X[0], y: py + (rnd() - 0.5) * 4 }, { x: X[1], y: n.y }, { color: PAPER, layer: 0, ids: n.ids }, rnd);
@@ -198,7 +202,7 @@ export function mountFlow(root, data, opts = {}) {
       const name = h("span", null, `${r.method} · ${caseLabel[r.case] ?? r.case} `), state = h("b", null, "");
       const barEl = h("div", "bar"), fill = h("i"); fill.style.background = mcolor[r.method]; barEl.append(fill);
       const met = h("small", null, "");
-      d.append(name, state, barEl, met);
+      if (phone) d.append(state, name, barEl, met); else d.append(name, state, barEl, met);
       put(d, X[3] + 10, y).style.maxWidth = (W - X[3] - 16) + "px";
       rows.push({ run: r, el: d, state, fill, met });
       for (let s = 0; s < 4; s++)
@@ -274,9 +278,10 @@ export function mountFlow(root, data, opts = {}) {
     paint(ms / 1000, pulsing);
     if (moving || pulsing) kick();
   }
-  function kick() { if (!raf) raf = requestAnimationFrame(frame); }
+  function kick() { if (!destroyed && !raf) raf = requestAnimationFrame(frame); }
 
   function updateRows() {
+    if (destroyed) return;
     liveRun = null;
     for (const [i, row] of rows.entries()) {
       const p = progress[row.run.run_id];
@@ -312,7 +317,7 @@ export function mountFlow(root, data, opts = {}) {
     for (const m of k.metrics) cell(m.key, m.text, m.label, m.note);
     cell("coverage", draft ? "—" : pct(k.implemented, k.items), "paper coverage", "extracted items implemented");
 
-    const impl = sel.method ? new Set(data.methods.find((m) => m.name === sel.method).implements) : null;
+    const impl = sel.method ? new Set((data.methods.find((m) => m.name === sel.method)?.implements ?? [])) : null;
     for (const c of cables) {
       let on = true;
       if (c.method && sel.method && c.method !== sel.method) on = false;
@@ -340,9 +345,14 @@ export function mountFlow(root, data, opts = {}) {
 
   if (opts.live) {
     const poll = async () => {
+      if (destroyed) return;
       try {
         const r = await fetch(opts.live.url, { cache: "no-store" });
-        if (r.ok) { progress = await r.json(); updateRows(); }
+        if (r.ok) {
+          const j = await r.json();
+          if (destroyed) return;
+          if (j && typeof j === "object" && !Array.isArray(j)) { progress = j; updateRows(); }
+        }
       } catch { /* the server went away; keep the last state */ }
     };
     poll();
@@ -350,8 +360,13 @@ export function mountFlow(root, data, opts = {}) {
   }
 
   return {
-    select(next) { Object.assign(sel, next); refresh(); },
+    select(next = {}) {
+      if ("method" in next) sel.method = data.methods.some((m) => m.name === next.method) ? next.method : null;
+      if ("case" in next) sel.case = data.cases.some((c) => c.key === next.case) ? next.case : null;
+      refresh();
+    },
     destroy() {
+      destroyed = true;
       ro.disconnect(); clearTimeout(resizeTimer);
       if (timer) clearInterval(timer);
       if (raf) cancelAnimationFrame(raf);
