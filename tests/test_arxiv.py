@@ -115,3 +115,12 @@ def test_cli_new_arxiv(tiny_git_study, monkeypatch, capsys):
     assert cli.main(["new", "--arxiv", "2608.27428", "--id", "tl-2026"]) == 0
     assert (root / "studies" / "tl-2026" / "paper.yaml").is_file()
     assert "raft prepare --study tl-2026" in capsys.readouterr().out
+
+
+def test_tex_accents_in_names_and_titles_are_decoded():
+    raw = RECORD.replace("Vésteinn Snæbjarnarson".encode(), rb"V{\'e}steinn Sn{\ae}bjarnarson, J\"org M\"uller, Fran\c{c}ois Ch\^ateau, {\O}ystein {\AA}se")
+    r = arxiv.parse_record(raw)
+    assert r["authors"][:5] == ["Vésteinn Snæbjarnarson", "Jörg Müller", "François Château", "Øystein Åse",
+                                "Samuel Kiegeland"]
+    assert arxiv.parse_record(RECORD.replace(b"Stochastic", rb"Stochastic {B}ayesian $\ell_1$"))["title"].startswith(
+        "Stochastic Bayesian $\\ell_1$")

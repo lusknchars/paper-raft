@@ -48,6 +48,31 @@ class Fetcher:
             self.last = self.clock()
 
 
+_TEX_LETTERS = {"ae": "æ", "AE": "Æ", "oe": "œ", "OE": "Œ", "aa": "å", "AA": "Å", "ss": "ß", "o": "ø", "O": "Ø",
+                "l": "ł", "L": "Ł", "i": "ı"}
+_TEX_ACCENTS = {"'": "\u0301", "`": "\u0300", "^": "\u0302", '"': "\u0308", "~": "\u0303", "=": "\u0304",
+                ".": "\u0307", "c": "\u0327", "v": "\u030c", "u": "\u0306", "H": "\u030b", "r": "\u030a",
+                "k": "\u0328", "d": "\u0323", "b": "\u0331"}
+_LETTER = r"(ae|AE|oe|OE|aa|AA|ss|o|O|l|L|i)(?![A-Za-z])"
+
+
+def _detex(text: str) -> str:
+    """arXiv metadata writes accents in TeX (Sn{\\ae}bjarnarson, J\\"org); turn them into Unicode."""
+    def accent(m):
+        base = m.group(2)
+        base = "i" if base == "\\i" else base.lstrip("\\")
+        return base + _TEX_ACCENTS[m.group(1)]
+    text = re.sub(r"\\(['`^\"~=.cvuHrkdb])\s*\{\s*(\\i(?![A-Za-z])|[A-Za-z])\s*\}", accent, text)
+    text = re.sub(r"\\(['`^\"~=.])\s*(\\i(?![A-Za-z])|[A-Za-z])", accent, text)
+    text = re.sub(r"\\([cvuHrkdb])\s+([A-Za-z])", accent, text)
+    text = re.sub(r"\{\\" + _LETTER + r"\s*\}", lambda m: _TEX_LETTERS[m.group(1)], text)
+    text = re.sub(r"\\" + _LETTER + r"\s?", lambda m: _TEX_LETTERS[m.group(1)], text)
+    prev = None
+    while prev != text:
+        prev, text = text, re.sub(r"\{([^{}\\$]*)\}", r"\1", text)
+    return unicodedata.normalize("NFC", text)
+
+
 def _split_authors(text: str) -> list[str]:
     return [a.strip() for a in re.split(r",\s*(?:and\s+)?|\s+and\s+", text) if a.strip()]
 
@@ -65,7 +90,7 @@ def parse_record(xml: bytes) -> dict:
         raise SystemExit("raft: unexpected reply from arXiv (no arXivRaw record)")
 
     def text(tag):
-        return " ".join((raw.findtext(f"raw:{tag}", "", NS) or "").split())
+        return _detex(" ".join((raw.findtext(f"raw:{tag}", "", NS) or "").split()))
 
     versions = raw.findall("raw:version", NS)
     if not versions:
