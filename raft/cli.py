@@ -39,7 +39,7 @@ def _params(rest: list[str]) -> dict:
 KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out", "--title", "--doi", "--help", "-h",
          "--assets", "--port", "--no-open", "--agent", "--model", "--oss", "--setup", "--methods", "--label", "--cmd",
          "--run-timeout", "--verify", "--table", "--force", "--arxiv", "--id", "--brief", "--round", "--without-attacks", "--attacker", "--attacker-model", "--attacker-cmd",
-         "--rounds"}
+         "--rounds", "--watch"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -64,6 +64,14 @@ def _report(problems: list[str], ok: str) -> int:
         return 1
     print(f"✓ {ok}")
     return 0
+
+
+def _live_view(root: Path, on: bool) -> None:
+    from . import watch
+    if on:
+        watch.background(root)
+    else:
+        print("• watch live: uv run raft watch", flush=True)
 
 
 def _duration(text: str) -> float:
@@ -151,7 +159,7 @@ def main(argv: list[str] | None = None) -> int:
     rp.add_argument("--timeout", type=float, default=1800.0)
     c = sub.add_parser("compare", help="score every run and build the static site")
     c.add_argument("--out", default="site")
-    w = sub.add_parser("watch", help="show the flow view on localhost, live while runs are going")
+    w = sub.add_parser("watch", help="show live prepare and bench sessions on localhost; with --study, the flow view of its runs")
     w.add_argument("--study")
     w.add_argument("--port", type=int, default=8765)
     w.add_argument("--no-open", action="store_true")
@@ -160,6 +168,7 @@ def main(argv: list[str] | None = None) -> int:
     fe.add_argument("--out", required=True)
     fe.add_argument("--assets")
     b = sub.add_parser("bench", help="give a study to your agent in a blind workspace, grade its code, write a scoreboard entry")
+    b.add_argument("--watch", action="store_true", help="open the live view in your browser while it runs")
     b.add_argument("--study")
     b.add_argument("--agent", choices=("claude-code", "codex", "command"))
     b.add_argument("--model")
@@ -190,6 +199,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--run-timeout", type=_duration, default=1800.0)
     pr = sub.add_parser("prepare", help="from an arXiv id or a draft study to a checker ready for your approval, with agents")
     pr.add_argument("--arxiv")
+    pr.add_argument("--watch", action="store_true", help="open the live view in your browser while it runs")
     pr.add_argument("--study")
     pr.add_argument("--id", dest="new_id")
     pr.add_argument("--brief")
@@ -231,7 +241,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.cmd == "watch":
         from . import watch
-        watch.serve(root, paths.resolve_study(root, args.study), args.port, not args.no_open)
+        study = paths.resolve_study(root, args.study) if args.study else None
+        watch.serve(root, study, args.port, not args.no_open)
         return 0
     if args.cmd == "flow-export":
         from . import compare, flow
@@ -261,6 +272,7 @@ def main(argv: list[str] | None = None) -> int:
             p.error("bench needs --agent (or --table, or --verify)")
         study = paths.resolve_study(root, args.study)
         methods = [m.strip() for m in args.methods.split(",") if m.strip()] if args.methods else None
+        _live_view(root, args.watch)
         dest = bench.run_bench(root, study, args.agent, model=args.model, oss=args.oss, setup=args.setup,
                                methods=methods, label=args.label, cmd=args.agent_cmd, timeout=args.timeout,
                                run_timeout=args.run_timeout)
@@ -290,6 +302,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "prepare":
         from . import prepare
+        _live_view(root, args.watch)
         prepare.prepare(root, agent=args.agent, arxiv=args.arxiv, study=args.study, study_id=args.new_id,
                         brief_url=args.brief, model=args.model, cmd=args.agent_cmd, attacker=args.attacker,
                         attacker_model=args.attacker_model, attacker_cmd=args.attacker_cmd, timeout=args.timeout,

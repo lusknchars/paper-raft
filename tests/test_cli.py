@@ -49,3 +49,14 @@ def test_outside_checkout(tmp_path, monkeypatch):
 def test_run_needs_method_or_all(in_tiny):
     with pytest.raises(SystemExit):
         cli.main(["run"])
+
+
+def test_prepare_watch_flag_starts_the_server(in_tiny, monkeypatch, capsys):
+    from raft import prepare, watch
+    started = []
+    monkeypatch.setattr(watch, "background", lambda root, **kw: started.append(kw) or None)
+    monkeypatch.setattr(prepare, "prepare", lambda root, **kw: "tiny")
+    assert cli.main(["prepare", "--study", "tiny", "--agent", "codex", "--watch"]) == 0
+    assert started == [{}]
+    assert cli.main(["prepare", "--study", "tiny", "--agent", "codex"]) == 0
+    assert started == [{}] and "watch live: uv run raft watch" in capsys.readouterr().out
