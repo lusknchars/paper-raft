@@ -78,8 +78,8 @@ Codex with a local model is `--agent codex --model <ollama model> --oss`, so a f
 
 ## Scoreboard
 
-- `raft compare` adds a **Bench** page to the site: one table per study, full entries ranked by score, then lower
-  cost, then lower wall time; partial entries below. Each row links to its code and transcript on GitHub.
+- `raft compare` adds a **Bench** page to the site: one table per study, full entries ranked by score, then entry id
+  (tokens, cost and time are self-reported, so they are shown but never ranked); partial entries below. Each row links to its code and transcript on GitHub.
 - The overview gets a small "Bench" box with the top entries per study.
 - `raft bench --table` prints the same as markdown for the README and launch posts.
 

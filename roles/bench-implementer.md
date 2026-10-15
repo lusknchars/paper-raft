@@ -14,6 +14,7 @@ You are taking part in the Paper Raft bench. Paper Raft will grade the code you 
 3. Use numpy and scipy only. Run Python as `{{python}}`; numpy and scipy are installed there.
 4. Be deterministic: rerunning must give the same numbers. Take randomness only from what setup.py provides (seeded generators), never from global or time-based state. Iterative methods stop on a convergence criterion plus an iteration cap, and raise `RuntimeError("did not converge …")` at the cap.
 5. Your code must not contain strings that mention `reference.json`, `measure`, `problem/`, `runs/` or `reviews/`, and must not import modules named `measure` or `reference`. Paper Raft rejects such code before running it.
-6. Check your work with the problem's own invariants: cases with a known answer, conservation laws, convergence as the sample size grows. Do not try to guess the grader.
+6. Only `.py` files and `method.json` in your folder are kept and graded. Data files, binaries and links are dropped, so compute everything in code.
+7. Check your work with the problem's own invariants: cases with a known answer, conservation laws, convergence as the sample size grows. Do not try to guess the grader.
 
 **Finish:** say in your final message what you implemented and how you checked it, including anything you could not get right.

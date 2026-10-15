@@ -270,10 +270,10 @@ function benchView() {
   const first = D.studies[0] ? D.studies[0].id : "<study>";
   app.append(el("nav", {}, el("a", { href: "#" }, "← all studies")), el("h2", {}, "Bench"),
     el("p", {}, "Bring your agent setup: a model, an AGENTS.md or CLAUDE.md, your skills. Paper Raft gives it a study ",
-      "in a blind workspace, with no answers and no grader on disk, then grades its code with the study's own measure ",
+      "in a blind workspace, with no answers and no grader in it, then grades its code with the study's own measure ",
       "in a copy the agent never touched."),
     el("pre", {}, `uv run raft bench --study ${first} --agent codex --setup ./my-setup --label "my setup"`),
-    el("p", { class: "muted" }, "Entries are graded automatically and not reviewed. * Reported by the agent's tool, not verified."));
+    el("p", { class: "muted" }, "Entries are graded automatically and not reviewed; ranking uses the score only. * Reported by the agent's tool, not verified."));
   const bench = D.bench || {};
   if (!Object.keys(bench).length) { app.append(el("p", {}, "No entries yet.")); return; }
   for (const [sid, r] of Object.entries(bench)) {

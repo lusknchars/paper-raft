@@ -11,7 +11,9 @@ import hashlib
 import json
 import math
 import platform
+import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -34,15 +36,81 @@ def _paper(sd: Path) -> dict:
     return yaml.safe_load((sd / "paper.yaml").read_text()) or {}
 
 
+CODE_LIMIT = 1_000_000  # bytes per file in a method folder
+
+
 def problem_hash(sd: Path) -> str:
-    return provenance.inputs_hash({}, Path(sd) / "problem")
+    """Hash of the git-tracked files in problem/, so ignored clutter (.DS_Store) never changes it."""
+    problem = Path(sd) / "problem"
+    try:
+        out = subprocess.run(["git", "ls-files", "-z", "--", "."], cwd=problem, capture_output=True,
+                             check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return provenance.inputs_hash({}, problem)
+    names = sorted(n for n in out.decode().split("\0") if n)
+    if not names:
+        return provenance.inputs_hash({}, problem)
+    h = hashlib.sha256()
+    for n in names:
+        h.update(n.encode() + b"\0")
+        h.update((problem / n).read_bytes())
+    return h.hexdigest()
+
+
+def _guarded(root: Path, study: str) -> list[Path]:
+    sd = _study_dir(root, study)
+    return [sd / "problem", sd / "paper.yaml", sd / "extraction.json", Path(root) / "raft"]
 
 
 def require_clean(root: Path, study: str) -> None:
-    sd = _study_dir(root, study)
-    if provenance.is_dirty(root, [sd / "problem", sd / "paper.yaml", sd / "extraction.json"]):
-        raise SystemExit(f"raft: studies/{study} has uncommitted changes in problem/, paper.yaml or "
-                         "extraction.json; commit them first")
+    if provenance.is_dirty(root, _guarded(root, study)):
+        raise SystemExit(f"raft: studies/{study} (problem/, paper.yaml, extraction.json) or raft/ has uncommitted "
+                         "changes; commit them first")
+
+
+def code_files(d: Path) -> list[Path]:
+    """The files of a method folder that count: regular .py files and method.json, never symlinks."""
+    d, out = Path(d), []
+    if not d.is_dir() or d.is_symlink():
+        return out
+    for here, dirs, files in os.walk(d, followlinks=False):
+        dirs[:] = sorted(x for x in dirs if x != "__pycache__" and not os.path.islink(os.path.join(here, x)))
+        for f in sorted(files):
+            p = Path(here) / f
+            if (not p.is_symlink() and p.is_file() and (p.suffix == ".py" or f == "method.json")
+                    and p.stat().st_size <= CODE_LIMIT):
+                out.append(p)
+    return out
+
+
+def stray_files(d: Path) -> list[str]:
+    """Everything in a method folder that code_files() leaves out (data, binaries, links, oversized files)."""
+    d = Path(d)
+    keep = set(code_files(d))
+    out = []
+    for here, dirs, files in os.walk(d, followlinks=False):
+        dirs[:] = [x for x in dirs if x != "__pycache__"]
+        for name in files + [x for x in dirs if os.path.islink(os.path.join(here, x))]:
+            p = Path(here) / name
+            if p not in keep and p.suffix != ".pyc":
+                out.append(p.relative_to(d).as_posix())
+    return sorted(out)
+
+
+def copy_code(src: Path, dst: Path) -> None:
+    for p in code_files(src):
+        target = Path(dst) / p.relative_to(src)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(p, target)
+
+
+def python_shim(bin_dir: Path) -> Path:
+    """A `python` outside the repo for the brief, so the brief does not hand the agent the repo's path."""
+    p = Path(bin_dir) / "python"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(f"#!/bin/sh\nexec {shlex.quote(sys.executable)} \"$@\"\n")
+    p.chmod(0o755)
+    return p
 
 
 def _setup_files(setup: Path) -> list[Path]:
@@ -91,20 +159,17 @@ def make_workspace(root: Path, study: str, ws: Path, setup: Path | None) -> Path
     return ws
 
 
-def render_brief(root: Path, study: str, method: str) -> str:
-    return briefs.render(Path(root), "bench-implementer", study, method).replace("{{python}}", sys.executable)
+def render_brief(root: Path, study: str, method: str, python: str) -> str:
+    return briefs.render(Path(root), "bench-implementer", study, method).replace("{{python}}", python)
 
 
 OVERLAP = 0.8  # an agent solver at least this similar to the lab's own solver counts as copied
 
 
 def _code_lines(d: Path) -> list[str]:
-    d = Path(d)
-    if not d.is_dir():
-        return []
     lines = []
-    for p in sorted(d.rglob("*.py")):
-        if "__pycache__" not in p.parts:
+    for p in code_files(d):
+        if p.suffix == ".py":
             lines += [s.strip() for s in p.read_text(errors="replace").splitlines() if s.strip()]
     return lines
 
@@ -135,11 +200,11 @@ def grade(root: Path, study: str, code_dir: Path, methods: list[str], run_timeou
         out = []
         for m in methods:
             src, dst = Path(code_dir) / m, g / "methods" / m
-            has = (src / "solver.py").is_file()
+            has = (src / "solver.py") in code_files(src)
             copied = has and lab_overlap(sd / "methods" / m, src) >= OVERLAP
             res = {"name": m, "guard": [], "copied_from_lab": copied, "runs": []}
             if has:
-                shutil.copytree(src, dst, ignore=_IGNORE)
+                copy_code(src, dst)
                 res["guard"] = guard.scan_method(dst)
             for p in combos:
                 rid = runner.run_id(m, p)
@@ -167,10 +232,9 @@ def _code_hash(code_dir: Path, methods: list[str]) -> str:
     h = hashlib.sha256()
     for m in methods:
         d = Path(code_dir) / m
-        for p in sorted(d.rglob("*")) if d.is_dir() else []:
-            if p.is_file() and "__pycache__" not in p.parts:
-                h.update(f"{m}/{p.relative_to(d).as_posix()}".encode() + b"\0")
-                h.update(p.read_bytes())
+        for p in code_files(d):
+            h.update(f"{m}/{p.relative_to(d).as_posix()}".encode() + b"\0")
+            h.update(p.read_bytes())
     return h.hexdigest()
 
 
@@ -204,14 +268,18 @@ def run_bench(root: Path, study: str, agent: str, *, model=None, oss=False, setu
         ws = make_workspace(root, study, Path(tmp) / "ws", setup)
         logs = Path(tmp) / "logs"
         logs.mkdir()
+        python = str(python_shim(Path(tmp) / "bin"))
         tried = {}
         for m in chosen:
             brief = logs / f"{m}.md"
-            brief.write_text(render_brief(root, study, m))
+            brief.write_text(render_brief(root, study, m, python))
             log(f"• {agent}: {m} …")
             t = tried[m] = agents.run(agent, brief, ws, m, model=model, oss=oss, cmd=cmd, timeout=timeout,
                                       transcript=logs / f"{m}.jsonl")
             log(f"  {m}: " + ("timed out" if t["timed_out"] else f"agent exited {t['exit']}") + f" after {t['wall_s']:.0f}s")
+        if provenance.is_dirty(root, _guarded(root, study)):
+            raise SystemExit(f"raft: studies/{study} or raft/ changed while the agent ran; nothing was graded. "
+                             "Check `git status`, restore the files, and run the bench again.")
         code = ws / "studies" / study / "methods"
         log("• grading in a fresh copy of problem/ …")
         graded = grade(root, study, code, chosen, run_timeout, log)
@@ -237,8 +305,7 @@ def run_bench(root: Path, study: str, agent: str, *, model=None, oss=False, setu
             raise SystemExit(f"raft: {dest} already exists")
         (dest / "methods").mkdir(parents=True)
         for m in chosen:
-            if (code / m).is_dir():
-                shutil.copytree(code / m, dest / "methods" / m, ignore=_IGNORE)
+            copy_code(code / m, dest / "methods" / m)
             trim_copy(logs / f"{m}.jsonl", dest / "transcript" / f"{m}.jsonl")
             if (logs / f"{m}.stderr.txt").is_file() and (logs / f"{m}.stderr.txt").stat().st_size:
                 trim_copy(logs / f"{m}.stderr.txt", dest / "transcript" / f"{m}.stderr.txt")
@@ -272,6 +339,17 @@ def verify(root: Path, entry_dir: Path, run_timeout: float = 1800.0, log=lambda 
     if problem_hash(sd) != entry["problem_hash"]:
         return [f"{eid}: studies/{study}/problem changed since this entry; rerun the bench"]
     names = [m["name"] for m in entry["methods"]]
+    lab = runner.methods(sd)
+    found = [f"{n} is listed more than once" for n in sorted(set(names)) if names.count(n) > 1]
+    found += [f"{n} is not a method of studies/{study}" for n in sorted(set(names)) if n not in lab]
+    on_disk = sorted(p.name for p in (entry_dir / "methods").iterdir()) if (entry_dir / "methods").is_dir() else []
+    found += [f"methods/{n} is not in entry.json" for n in on_disk if n not in names]
+    for n in sorted(set(names)):
+        stray = stray_files(entry_dir / "methods" / n)
+        if stray:
+            found.append(f"methods/{n} may hold only .py files and method.json (found {', '.join(stray[:5])})")
+    if found:
+        return [f"{eid}: {p}" for p in found]
     graded = grade(root, study, entry_dir / "methods", names, run_timeout, log)
     setup_mod = runner.load_module(sd / "problem" / "setup.py", f"raft_bench_{study.replace('-', '_')}")
     rtol = float(getattr(setup_mod, "REPRO_RTOL", 1e-8))

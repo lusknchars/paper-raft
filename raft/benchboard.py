@@ -51,8 +51,8 @@ def is_full(entry: dict, lab: list[str]) -> bool:
 
 
 def _key(entry: dict):
-    t = totals(entry)
-    return (-fraction(entry), math.inf if t["cost_usd"] is None else t["cost_usd"], t["wall_s"], entry["id"])
+    # Only verified fields rank: tokens, cost and time are self-reported, so ties keep a stable id order.
+    return (-fraction(entry), entry["id"])
 
 
 def ranked(entries: list[dict], lab: list[str]) -> dict:

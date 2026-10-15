@@ -27,7 +27,7 @@ How well does *your* agent setup reproduce a real paper? Point Claude Code or Co
     uv run raft bench --agent command --cmd "my-agent --task {brief}"                    # any other tool
 
 The agent works in a blind workspace: the paper's extraction and the problem's interface, with no git history,
-no existing solutions, and no grader or reference numbers on disk. Paper Raft then grades its code with the
+no existing solutions, and no grader or reference numbers in it. Paper Raft then grades its code with the
 study's own measure in a copy the agent never touched, and writes an entry to `bench/results/<study>/`. Nothing the
 agent says counts, only what its code does.
 
@@ -35,10 +35,13 @@ agent says counts, only what its code does.
 - `uv run raft bench --verify` reruns every entry's code and checks its recorded numbers (CI does this on every PR).
 - To join the scoreboard, read your transcript, then open a pull request with your entry folder.
 
-Entries are graded automatically and not reviewed. Tokens, cost and time are reported by the agent's tool and are
-not verified. The agent runs on your machine, where this repository's own solutions are on disk: the brief tells it
-not to look, Claude Code runs without web tools, Codex runs in its workspace sandbox, and code that matches the
-lab's own solver is marked copied and scores zero.
+Entries are graded automatically and not reviewed, and the ranking uses only the score: tokens, cost and time are
+reported by the agent's tool and are not verified. Know the limits: the agent runs on your machine, where this
+repository (its solutions and its grader) is on disk, and neither Claude Code nor Codex stops it reading files
+outside the workspace. The brief tells it not to look, Claude Code runs without web tools, Codex runs in its
+workspace sandbox, bench refuses to grade if the repository changed while the agent ran, and code that closely
+matches the lab's own solver is marked copied. That last check is a tripwire, not a guarantee; maintainers read
+every entry's code before merging it.
 
 ## Flow view
 

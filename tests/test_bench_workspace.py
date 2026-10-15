@@ -1,5 +1,4 @@
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -54,8 +53,8 @@ def test_setup_must_be_a_folder(tiny_git_study, tmp_path):
 
 
 def test_brief_names_method_and_python(tiny_git_study):
-    text = bench.render_brief(tiny_git_study.parents[1], "tiny", "exact")
-    assert text.strip() == f"# bench tiny exact at studies/tiny python {sys.executable}"
+    text = bench.render_brief(tiny_git_study.parents[1], "tiny", "exact", "/tmp/x/bin/python")
+    assert text.strip() == "# bench tiny exact at studies/tiny python /tmp/x/bin/python"
 
 
 def test_real_role_mentions_the_essentials():

@@ -57,14 +57,14 @@ def test_totals_unknown_cost_stays_unknown():
     assert t["cost_usd"] is None and t["input_tokens"] == 11 and t["output_tokens"] == 6 and t["wall_s"] == 120.0
 
 
-def test_ranked_by_score_then_cost_then_time_and_full_before_partial():
+def test_ranked_by_score_then_id_and_full_before_partial():
     lab = ["a", "b"]
     best = entry("e1", methods=[method("a", [True, True], cost=2.0), method("b", [True, True], cost=2.0)])
     cheap = entry("e2", methods=[method("a", [True, True], cost=0.1), method("b", [True, False], cost=0.1)])
     cheaper_same = entry("e3", methods=[method("a", [True, True], cost=0.5), method("b", [True, True], cost=0.5)])
     partial = entry("e4", methods=[method("a", [True, True])])
     r = benchboard.ranked([cheap, partial, best, cheaper_same], lab)
-    assert [e["id"] for e in r["full"]] == ["e3", "e1", "e2"]
+    assert [e["id"] for e in r["full"]] == ["e1", "e3", "e2"]
     assert [e["id"] for e in r["partial"]] == ["e4"]
 
 

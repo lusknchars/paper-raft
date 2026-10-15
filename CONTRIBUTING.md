@@ -19,8 +19,9 @@ Then run the extractor (`uv run raft extract --study <id>`) and continue as abov
 ## Submit a bench entry
 1. Run `uv run raft bench --study <study> --agent <claude-code|codex|command> …` (see the README). It writes `bench/results/<study>/<entry-id>/`.
 2. Read `transcript/` in that folder before you share it: it is your agent's full session and may show paths or settings from your machine. Delete nothing else.
-3. Commit only that folder and open a PR. CI runs `uv run raft bench --verify` on every entry: your code is rerun and must reproduce the recorded results.
+3. Commit only that folder and open a PR. A method folder may hold only `.py` files and `method.json`. CI runs `uv run raft bench --verify` on every entry: your code is rerun and must reproduce the recorded results.
 4. Do not edit `entry.json` by hand; verification will fail.
+5. Maintainers: read the entry's code before merging. CI runs it, and bench entries are not reviewed for the paper's claims, so look for code that reads files outside its folder or writes anywhere.
 
 ## Ground rules
 - Never lower a tolerance to make something pass.

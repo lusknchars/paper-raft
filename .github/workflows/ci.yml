@@ -18,7 +18,6 @@ jobs:
       - run: uv run raft extract --validate --all-studies
       - run: uv run raft review --validate --all-studies
       - run: uv run raft repro --all-studies
-      - run: uv run raft bench --verify
       - run: uv run raft compare
         env:
           RAFT_REPO_URL: https://github.com/${{ github.repository }}
@@ -33,9 +32,17 @@ jobs:
         if: github.ref == 'refs/heads/main'
         with:
           path: site
+  bench-verify:
+    # Bench entries are community code: rerun them in their own job, with no Pages artifact and read-only contents.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --locked
+      - run: uv run raft bench --verify
   deploy:
     if: github.ref == 'refs/heads/main'
-    needs: check
+    needs: [check, bench-verify]
     runs-on: ubuntu-latest
     permissions:
       pages: write
