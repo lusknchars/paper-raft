@@ -67,7 +67,7 @@ function seeded(seed) {
 function makeGL() {
   const renderer = new THREE.WebGLRenderer({ antialias: true }); // throws without WebGL
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setClearColor(BG, 1);
+  renderer.setClearColor(0x000000, 1);
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(0, 1, 1, 0, -10, 10);
   const composer = new EffectComposer(renderer);
@@ -120,6 +120,7 @@ export function mountFlow(root, data, opts = {}) {
   if (!force2d) { try { gl = makeGL(); } catch { gl = null; } }
   const canvas = gl ? gl.renderer.domElement : document.createElement("canvas");
   const ctx = gl ? null : canvas.getContext("2d");
+  root.dataset.rfRenderer = gl ? "webgl" : "2d";
   canvas.className = "rf-canvas";
   stage.prepend(canvas);
   if (!reduce) { canvas.style.opacity = "0"; requestAnimationFrame(() => requestAnimationFrame(() => { canvas.style.opacity = "1"; })); }
@@ -137,18 +138,19 @@ export function mountFlow(root, data, opts = {}) {
     W = stage.clientWidth; H = stage.clientHeight;
     labels.replaceChildren(); cables = []; rows = []; heads = {}; methodEls = {};
     const rnd = seeded(2608), phone = W < 720, top = phone ? 58 : 70, bottom = H - 14;
-    const X = phone ? [W * 0.10, W * 0.30, W * 0.50, W * 0.60] : [W * 0.17, W * 0.38, W * 0.58, W * 0.74];
+    const X = phone ? [W * 0.08, W * 0.30, W * 0.52, W * 0.86] : [W * 0.17, W * 0.38, W * 0.58, W * 0.74];
     const put = (el, x, y) => { el.style.left = x + "px"; el.style.top = y + "px"; labels.append(el); return el; };
 
     const headDefs = [["paper", "paper", "paper", Math.max(60, X[0] - W * 0.08)],
       ["implemented", "extracted → implemented", "implemented", X[1]],
       ["methods", "methods verified", "verified", X[2]], ["runs", "runs", "runs", Math.min(W - 70, X[3] + 60)]];
-    headDefs.forEach(([key, title, short, x], i) => {
+    const quarter = [0.125, 0.375, 0.625, 0.875];
+    headDefs.forEach(([key, title, short, x0], i) => {
+      const x = phone ? W * quarter[i] : x0;
       const d = h("div", "rf-head"); d.dataset.rf = key;
-      d.append(h("div", "t", phone ? short : title), h("div", "p", "—"), h("div", "s", ""));
-      const gap = Math.min(...[headDefs[i - 1], headDefs[i + 1]].filter(Boolean).map((o) => Math.abs(o[3] - x)));
+      d.append(h("div", "t", phone ? ["paper", "items", "verified", "runs"][i] : title), h("div", "p", "—"), h("div", "s", ""));
       heads[key] = put(d, x, 4);
-      if (phone) heads[key].style.maxWidth = Math.max(30, gap - 4) + "px";
+      if (phone) heads[key].style.maxWidth = (W / 4 - 6) + "px";
     });
 
     const py = top + (bottom - top) * 0.45;
@@ -190,6 +192,7 @@ export function mountFlow(root, data, opts = {}) {
       mY[m.name] = data.methods.length === 1 ? (top + bottom) / 2 : top + 40 + i * (bottom - top - 70) / (data.methods.length - 1);
       const d = h("div", "rf-method", m.name); d.style.color = mcolor[m.name];
       methodEls[m.name] = put(d, X[2] + 10, mY[m.name]);
+      if (phone) Object.assign(d.style, { maxWidth: (X[3] - X[2] - 16) + "px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" });
       const impl = new Set(m.implements);
       for (const n of nodes) if (n.ids.some((id) => impl.has(id)))
         for (let s = 0; s < (phone ? 2 : strands); s++)
@@ -202,9 +205,9 @@ export function mountFlow(root, data, opts = {}) {
       const name = h("span", null, `${r.method} · ${caseLabel[r.case] ?? r.case} `), state = h("b", null, "");
       const barEl = h("div", "bar"), fill = h("i"); fill.style.background = mcolor[r.method]; barEl.append(fill);
       const met = h("small", null, "");
-      if (phone) d.append(state, name, barEl, met); else d.append(name, state, barEl, met);
+      if (phone) d.append(state); else d.append(name, state, barEl, met);
       put(d, X[3] + 10, y).style.maxWidth = (W - X[3] - 16) + "px";
-      rows.push({ run: r, el: d, state, fill, met });
+      rows.push({ run: r, el: d, state, fill, met, name: `${r.method} · ${caseLabel[r.case] ?? r.case}` });
       for (let s = 0; s < 4; s++)
         cable({ x: X[2] + 4, y: mY[r.method] + (rnd() - 0.5) * 4 }, { x: X[3], y: y + (rnd() - 0.5) * 3 },
           { color: mcolor[r.method], layer: 2, method: r.method, run: i }, rnd);
@@ -291,6 +294,12 @@ export function mountFlow(root, data, opts = {}) {
         if (typeof p.fraction === "number") { width = Math.round(100 * p.fraction); text = width + "%"; }
         else { width = 0; text = `running · ${Math.max(0, Math.round((Date.now() - Date.parse(p.started_at)) / 60000))} min`; }
       } else if (p && p.state === "finished") { width = 100; text = p.pass ? "✓ passes (local)" : "✗ fails (local)"; }
+      if (W < 720) {
+        const short = /^\d+%$/.test(text) ? text : /^running/.test(text) ? "…" : /✓/.test(text) ? "✓" : /✗/.test(text) ? "✗"
+          : row.run.status === "stale" && !(p && p.state === "finished") ? "!" : row.run.status === "missing" && !p ? "–" : text;
+        row.el.title = `${row.name}: ${text}`;
+        text = short;
+      } else row.el.title = "";
       row.state.textContent = text;
       row.fill.style.width = width + "%";
       const m = data.metrics.find((s) => row.run.metrics.some((x) => x.key === s.key));
