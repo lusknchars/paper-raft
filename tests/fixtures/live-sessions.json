@@ -1,0 +1,41 @@
+[
+  {"id": "prepare-wu-2026-multimodal-20261015T210000000000Z", "kind": "prepare", "study": "wu-2026-multimodal",
+   "title": "Multimodal Alignment Through Joint Kernel Entropic Gromov–Wasserstein Optimal Transport",
+   "arxiv": "2608.04234", "pid": 1, "started_at": "2026-10-15T21:00:00+00:00", "updated_at": "2026-10-15T21:20:00+00:00",
+   "state": "running",
+   "agents": {"builder": {"tool": "claude-code", "model": null}, "attacker": {"tool": "codex", "model": "gpt-5-codex"}},
+   "units": {"done": 4, "total": 8},
+   "steps": [
+     {"id": "intake", "label": "Intake", "state": "done", "agent": null, "method": null, "timeout_s": null, "started_at": "2026-10-15T21:00:00+00:00", "wall_s": 0.0, "detail": "studies/wu-2026-multimodal from arXiv:2608.04234", "activity": [], "stderr_tail": null},
+     {"id": "extract-1", "label": "Extract", "state": "done", "agent": "builder", "method": null, "timeout_s": 2700, "started_at": "2026-10-15T21:00:01+00:00", "wall_s": 412.0, "detail": "extraction.json valid", "activity": [], "stderr_tail": null},
+     {"id": "build-1", "label": "Build checker", "state": "done", "agent": "builder", "method": null, "timeout_s": 2700, "started_at": "2026-10-15T21:07:00+00:00", "wall_s": 600.0, "detail": "checker validates", "activity": [], "stderr_tail": null},
+     {"id": "attack-1", "label": "Attack round 1", "state": "done", "agent": "attacker", "method": null, "timeout_s": 2700, "started_at": "2026-10-15T21:17:00+00:00", "wall_s": 120.0, "detail": "1 hole(s) got through", "activity": [], "stderr_tail": null},
+     {"id": "fix-1", "label": "Fix checker after round 1", "state": "running", "agent": "builder", "method": null, "timeout_s": 2700, "started_at": "2026-10-15T21:19:00+00:00", "wall_s": null, "detail": null,
+      "activity": [{"t": "2026-10-15T21:19:10+00:00", "text": "Reading checker/attacks/hardcode-1.py"}, {"t": "2026-10-15T21:19:30+00:00", "text": "Edit studies/wu-2026-multimodal/problem/measure.py"}],
+      "stderr_tail": "ERROR codex_core::tools::router: error=timed out negotiating with the code-mode host"}
+   ],
+   "results": {"holes": 1, "rounds": [{"round": 1, "tried": 3, "blocked": 2, "attacks": [{"name": "zeros-1", "blocked": true}, {"name": "scaled-1", "blocked": true}, {"name": "hardcode-1", "blocked": false}]}]},
+   "message": null, "next": null},
+  {"id": "prepare-wu-2026-multimodal-20261015T200000000000Z", "kind": "prepare", "study": "wu-2026-multimodal",
+   "title": "Multimodal Alignment Through Joint Kernel Entropic Gromov–Wasserstein Optimal Transport", "arxiv": "2608.04234",
+   "pid": 1, "started_at": "2026-10-15T20:00:00+00:00", "updated_at": "2026-10-15T20:05:00+00:00", "state": "stopped",
+   "agents": {"builder": {"tool": "codex", "model": null}, "attacker": {"tool": "claude-code", "model": null}},
+   "units": {"done": 3, "total": 7},
+   "steps": [
+     {"id": "intake", "label": "Intake", "state": "done", "agent": null, "method": null, "timeout_s": null, "started_at": "2026-10-15T20:00:00+00:00", "wall_s": 0.0, "detail": "studies/wu-2026-multimodal", "activity": [], "stderr_tail": null},
+     {"id": "extract-1", "label": "Extract", "state": "failed", "agent": "builder", "method": null, "timeout_s": 2700, "started_at": "2026-10-15T20:00:01+00:00", "wall_s": 95.0, "detail": "1 problem(s) in extraction.json", "activity": [{"t": "2026-10-15T20:01:00+00:00", "text": "Blocked by the command tool: all three attempts timed out."}], "stderr_tail": "ERROR codex_core::tools::router: error=timed out negotiating with the code-mode host"},
+     {"id": "extract-2", "label": "Extract, try 2", "state": "failed", "agent": "builder", "method": null, "timeout_s": 2700, "started_at": "2026-10-15T20:02:00+00:00", "wall_s": 96.0, "detail": "1 problem(s) in extraction.json", "activity": [], "stderr_tail": null}
+   ],
+   "results": {}, "message": "raft: extraction still fails after 2 tries:\n  extraction.json: file not found", "next": null},
+  {"id": "bench-transduced-lm-2026-20261015T190000000000Z", "kind": "bench", "study": "transduced-lm-2026",
+   "title": "Transduced language models", "arxiv": "2608.27428", "pid": 1, "started_at": "2026-10-15T19:00:00+00:00",
+   "updated_at": "2026-10-15T19:40:00+00:00", "state": "finished",
+   "agents": {"agent": {"tool": "codex", "model": "gpt-5-codex"}}, "units": {"done": 3, "total": 3},
+   "steps": [
+     {"id": "implement-smc-rb", "label": "Implement smc-rb", "state": "done", "agent": "agent", "method": "smc-rb", "timeout_s": 1800, "started_at": "2026-10-15T19:00:00+00:00", "wall_s": 1500.0, "detail": "agent exited 0", "activity": [], "stderr_tail": null},
+     {"id": "run-smc-rb-a", "label": "smc-rb-a", "state": "done", "agent": null, "method": "smc-rb", "timeout_s": 1800, "started_at": "2026-10-15T19:25:00+00:00", "wall_s": 30.0, "detail": null, "activity": [], "stderr_tail": null},
+     {"id": "run-smc-rb-b", "label": "smc-rb-b", "state": "failed", "agent": null, "method": "smc-rb", "timeout_s": 1800, "started_at": "2026-10-15T19:26:00+00:00", "wall_s": 31.0, "detail": "error above tolerance", "activity": [], "stderr_tail": null}
+   ],
+   "results": {"passed": 1, "failed": 1, "expected": 2, "score": 0.5}, "message": null,
+   "next": "bench entry: bench/results/transduced-lm-2026/2026-10-15-codex-gpt-5-codex-abc123"}
+]

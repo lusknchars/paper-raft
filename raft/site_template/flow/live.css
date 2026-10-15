@@ -1,0 +1,51 @@
+.lv { --lv-bg: #030305; --lv-text: #c9c3b8; --lv-muted: #77716a; --lv-dim: #5d5852; --lv-strong: #efe6d6;
+  --lv-ok: #6fd9a0; --lv-run: #f2b24c; --lv-bad: #ef7a62; --lv-line: #2a2724;
+  background: var(--lv-bg); color: var(--lv-text); font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, sans-serif;
+  display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 100vh; box-sizing: border-box; }
+.lv * { box-sizing: border-box; }
+.lv.lv-compact { min-height: 0; grid-template-columns: minmax(0, 1fr); }
+.lv-side { border-right: 1px solid var(--lv-line); padding: 16px 10px; display: flex; flex-direction: column; gap: 6px; }
+.lv-side button { text-align: left; background: transparent; border: 1px solid transparent; border-radius: 8px;
+  color: var(--lv-text); font: inherit; padding: 8px 10px; cursor: pointer; }
+.lv-side button[aria-pressed="true"] { border-color: var(--lv-line); background: #0d0c0b; color: var(--lv-strong); }
+.lv-side small { display: block; color: var(--lv-muted); font-size: 11px; }
+.lv-main { padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.lv-head h1 { font-size: 18px; font-weight: 500; color: var(--lv-strong); margin: 0 0 6px; overflow-wrap: anywhere; }
+.lv-head a { color: inherit; }
+.lv-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lv-chip { border: 1px solid var(--lv-line); border-radius: 999px; padding: 2px 10px; font-size: 12px; }
+.lv-state { text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+.lv-state[data-s="running"] { color: var(--lv-run); } .lv-state[data-s="finished"] { color: var(--lv-ok); }
+.lv-state[data-s="stopped"], .lv-state[data-s="lost"] { color: var(--lv-bad); }
+.lv-stage { position: relative; height: 340px; overflow: hidden; border-radius: 10px; }
+.lv-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.lv-labels { position: absolute; inset: 0; pointer-events: none; }
+.lv-label { position: absolute; transform: translateX(-50%); text-align: center; font-size: 11px; color: var(--lv-muted);
+  max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-label[data-s="running"] { color: var(--lv-run); } .lv-label[data-s="failed"] { color: var(--lv-bad); }
+.lv-label[data-s="done"] { color: var(--lv-strong); }
+.lv-bar { display: flex; align-items: center; gap: 12px; }
+.lv-track { flex: 1; height: 6px; background: #151311; border-radius: 3px; overflow: hidden; }
+.lv-track i { display: block; height: 100%; width: 0; background: var(--lv-run); transition: width .6s ease; }
+.lv-pct { font-variant-numeric: tabular-nums; color: var(--lv-strong); white-space: nowrap; }
+.lv-timer { color: var(--lv-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.lv-activity { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.lv-activity li { color: var(--lv-text); overflow-wrap: anywhere; }
+.lv-activity li:last-child { color: var(--lv-strong); }
+.lv-who { color: var(--lv-dim); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.lv-stderr { margin: 0; color: var(--lv-run); background: #120d05; border-radius: 6px; padding: 8px 10px;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.lv-results { display: flex; flex-wrap: wrap; gap: 10px 26px; }
+.lv-cell .l { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--lv-dim); }
+.lv-cell .v { font-size: 20px; color: var(--lv-strong); font-variant-numeric: tabular-nums; }
+.lv-end { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.lv-end code { color: var(--lv-strong); }
+.lv-empty { padding: 24px; color: var(--lv-muted); }
+@media (max-width: 719px) {
+  .lv { grid-template-columns: minmax(0, 1fr); }
+  .lv-side { border-right: 0; border-bottom: 1px solid var(--lv-line); flex-direction: row; overflow-x: auto; }
+  .lv-side button { flex: 0 0 auto; max-width: 70vw; }
+  .lv-stage { height: 260px; }
+}
+@media (prefers-reduced-motion: reduce) { .lv-track i { transition: none; } }

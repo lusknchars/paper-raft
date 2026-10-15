@@ -81,3 +81,8 @@ def test_sessions_lists_newest_first_skips_junk_and_marks_lost(tmp_path):
 def test_no_live_dir_means_no_sessions(tmp_path):
     assert live.sessions(tmp_path) == []
     assert os.getpid() == live.Session(tmp_path, "bench", "tiny", agents=AGENTS, total=1).data["pid"]
+
+def test_page_fixture_matches_the_schema():
+    from pathlib import Path
+    for s in json.loads((Path(__file__).parent / "fixtures" / "live-sessions.json").read_text()):
+        schema.check("live", {k: v for k, v in s.items() if k != "id"})

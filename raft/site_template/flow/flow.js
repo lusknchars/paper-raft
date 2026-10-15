@@ -64,7 +64,7 @@ function seeded(seed) {
   return () => (s = (s * 16807) % 2147483647) / 2147483647;
 }
 
-function makeGL() {
+export function makeGL() {
   const renderer = new THREE.WebGLRenderer({ antialias: true }); // throws without WebGL
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setClearColor(0x000000, 1);
