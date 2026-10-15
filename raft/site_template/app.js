@@ -59,6 +59,7 @@ function route() {
   const study = D.studies.find((s) => s.id === id);
   if (view === "flow" && D.flows && Object.hasOwn(D.flows, id)) flowView(id);
   else if (view === "study" && study) (sub === "extraction" ? extractionView : compareView)(study);
+  else if (view === "bench") benchView();
   else overview();
 }
 
@@ -71,6 +72,8 @@ function overview() {
       el("a", { href: `#flow/${D.studies[0].id}` }, "Open the flow")), box);
     mountFlowInto(box, head, { others: draftsAsOthers() });
   }
+  app.append(el("a", { class: "card", href: "#bench" },
+    el("h2", {}, "Bench: bring your agent"), el("p", { class: "muted" }, benchSummary())));
   for (const s of D.studies) {
     app.append(el("a", { class: "card", href: `#study/${s.id}` },
       el("h2", {}, s.paper.title || s.id),
@@ -237,5 +240,49 @@ function extractionView(study) {
 
 document.getElementById("drawer-close").addEventListener("click", () => { drawer.hidden = true; });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") drawer.hidden = true; });
+function benchSummary() {
+  const b = D.bench || {};
+  const n = Object.values(b).reduce((a, r) => a + r.full.length + r.partial.length, 0);
+  if (!n) return "No entries yet. Give a paper to your Claude Code or Codex setup and see how it scores.";
+  const tops = Object.values(b).map((r) => r.full[0] && `${r.full[0].entrant} ${r.full[0].passed}/${r.full[0].expected}`).filter(Boolean);
+  return `${n} ${n === 1 ? "entry" : "entries"}. ` + (tops.length ? `Top: ${tops.join(" · ")}` : "Partial entries only so far.");
+}
+
+const money = (x) => (x == null ? "—" : "$" + x.toFixed(2));
+const kTokens = (r) => (r.input_tokens == null || r.output_tokens == null ? "—" : Math.round((r.input_tokens + r.output_tokens) / 1000) + "k");
+const minutes = (s) => Math.round(s / 60) + " min";
+
+function benchTable(rows, ranked) {
+  return el("div", { class: "table-wrap" }, el("table", {},
+    el("thead", {}, el("tr", {}, ["#", "agent", "setup", "score", "time", "tokens*", "cost*", "code"].map((h) => el("th", {}, h)))),
+    el("tbody", {}, rows.map((r, i) => el("tr", {},
+      el("td", {}, ranked ? String(i + 1) : "—"),
+      el("td", {}, r.entrant),
+      el("td", { class: "wrap" }, r.label || "—"),
+      el("td", { class: "num" }, `${r.passed}/${r.expected}`),
+      el("td", { class: "num" }, minutes(r.wall_s)),
+      el("td", { class: "num" }, kTokens(r)),
+      el("td", { class: "num" }, money(r.cost_usd)),
+      el("td", {}, safeUrl(r.url) ? el("a", { href: r.url, target: "_blank", rel: "noopener noreferrer" }, "code") : "—"))))));
+}
+
+function benchView() {
+  const first = D.studies[0] ? D.studies[0].id : "<study>";
+  app.append(el("nav", {}, el("a", { href: "#" }, "← all studies")), el("h2", {}, "Bench"),
+    el("p", {}, "Bring your agent setup: a model, an AGENTS.md or CLAUDE.md, your skills. Paper Raft gives it a study ",
+      "in a blind workspace, with no answers and no grader on disk, then grades its code with the study's own measure ",
+      "in a copy the agent never touched."),
+    el("pre", {}, `uv run raft bench --study ${first} --agent codex --setup ./my-setup --label "my setup"`),
+    el("p", { class: "muted" }, "Entries are graded automatically and not reviewed. * Reported by the agent's tool, not verified."));
+  const bench = D.bench || {};
+  if (!Object.keys(bench).length) { app.append(el("p", {}, "No entries yet.")); return; }
+  for (const [sid, r] of Object.entries(bench)) {
+    const s = D.studies.find((x) => x.id === sid);
+    app.append(el("h3", {}, s ? s.paper.title || sid : sid));
+    if (r.full.length) app.append(el("p", { class: "muted" }, "Every method attempted"), benchTable(r.full, true));
+    if (r.partial.length) app.append(el("p", { class: "muted" }, "Some methods attempted (not ranked)"), benchTable(r.partial, false));
+  }
+}
+
 window.addEventListener("hashchange", route);
 route();

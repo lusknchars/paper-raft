@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from . import flow, paths, runner, schema
+from . import benchboard, flow, paths, provenance, runner, schema
 from .status import derive_status
 
 SITE_FILES = ("index.html", "app.js", "style.css")
@@ -69,6 +69,7 @@ def build(root: Path, repo: str | None) -> dict:
             "counts": dict(Counter(m["headline_status"] for m in methods)),
         })
     data["flows"] = {s: flow.build_flow(root, s, repo) for s in paths.studies(root, include_drafts=True)}
+    data["bench"] = benchboard.board(root, repo, provenance.git_sha(root))
     return data
 
 

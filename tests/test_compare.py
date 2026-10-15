@@ -67,3 +67,30 @@ def test_compare_includes_flows_and_writes_them(tiny_git_study, tmp_path):
     assert json.loads((out / "flows" / "tiny.json").read_text())["study"] == "tiny"
     assert "window.RAFT_DATA" in (out / "data.js").read_text()
     assert (out / "flow" / "flow.js").is_file() and not (out / "flow" / "watch.html").exists()
+
+
+def test_site_data_has_an_empty_bench(tiny_git_study):
+    from raft import compare
+    data = compare.build(tiny_git_study.parents[1], None)
+    assert data["bench"] == {}
+
+
+def test_site_data_lists_bench_entries(tiny_git_study, tmp_path):
+    import shlex
+    import sys
+
+    from raft import bench, compare
+    root = tiny_git_study.parents[1]
+    agent = tmp_path / "agent.py"
+    agent.write_text(
+        "import sys\nfrom pathlib import Path\n"
+        "d = Path(sys.argv[2]) / 'studies' / 'tiny' / 'methods' / sys.argv[3]\n"
+        "d.mkdir(parents=True)\n"
+        "(d / 'solver.py').write_text('import numpy as np\\n\\n\\ndef solve(setup):\\n'\n"
+        "    '    xs = np.array([i / (setup.n - 1) for i in range(setup.n)])\\n    return {\"y\": xs * xs}\\n')\n")
+    cmd = f"{shlex.quote(sys.executable)} {shlex.quote(str(agent))} {{brief}} {{workspace}} {{method}}"
+    bench.run_bench(root, "tiny", "command", cmd=cmd, label="site test", log=lambda s: None)
+    data = compare.build(root, "https://github.com/o/r")
+    (row,) = data["bench"]["tiny"]["full"]
+    assert row["label"] == "site test" and row["passed"] == 2 and row["expected"] == 2
+    assert row["url"].startswith("https://github.com/o/r/tree/")
