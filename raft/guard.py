@@ -8,7 +8,7 @@ check (problem/ must be byte-identical after the run).
 import ast
 from pathlib import Path
 
-FORBIDDEN_TEXT = ("reference.json", "measure", "problem/", "problem\\", "runs/", "reviews/")
+FORBIDDEN_TEXT = ("reference.json", "measure", "problem/", "problem\\", "runs/", "reviews/", "checker/", "checker\\")
 FORBIDDEN_MODULES = ("measure", "reference")
 
 

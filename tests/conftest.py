@@ -81,7 +81,7 @@ def make_tiny_study(root: Path, git_repo: bool = False) -> Path:
     (root / "pyproject.toml").write_text("[project]\nname = 'tiny'\n")
     (root / ".gitignore").write_text("__pycache__/\n")
     (root / "roles").mkdir()
-    for role in ("extractor", "implementer", "reviewer"):
+    for role in ("extractor", "implementer", "reviewer", "checker-builder", "checker-attacker"):
         (root / "roles" / f"{role}.md").write_text(f"# {role} for {{{{study}}}} {{{{method}}}} at {{{{study_dir}}}} pdf {{{{pdf}}}}\n")
     (root / "roles" / "bench-implementer.md").write_text(
         "# bench {{study}} {{method}} at {{study_dir}} python {{python}}\n")

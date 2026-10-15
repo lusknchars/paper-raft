@@ -9,7 +9,7 @@ You write one independent implementation. Other agents implement different metho
 - `method.json`: `{"name": "{{method}}", "implements": [extraction ids you implemented], "author_agent": "<tool:role#{{method}}>", "notes": "<every choice the paper does not dictate, citing extraction ids>"}`
 
 **Rules** (a guard test enforces 1–3):
-1. Never read, import or mention the shared measurement module, the reference data, `runs/` or `reviews/`.
+1. Never read, import or mention the shared measurement module, the reference data, `runs/`, `reviews/` or the study's `checker/` folder.
 2. Never write outside your folder.
 3. Use numpy and scipy only.
 4. Be deterministic: rerunning must give the same numbers. Take randomness only from what setup.py provides (seeded generators), never from global or time-based state. Iterative methods stop on a convergence criterion plus an iteration cap, and raise `RuntimeError("did not converge …")` at the cap.

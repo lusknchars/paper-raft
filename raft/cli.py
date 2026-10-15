@@ -38,7 +38,7 @@ def _params(rest: list[str]) -> dict:
 # Options raft itself understands; every other --key [value] is a study parameter.
 KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out", "--title", "--doi", "--help", "-h",
          "--assets", "--port", "--no-open", "--agent", "--model", "--oss", "--setup", "--methods", "--label", "--cmd",
-         "--run-timeout", "--verify", "--table", "--force", "--arxiv", "--id", "--brief"}
+         "--run-timeout", "--verify", "--table", "--force", "--arxiv", "--id", "--brief", "--round"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -88,6 +88,12 @@ def _study_cmd(p, args, root: Path, study: str, params: dict) -> int:
         if not args.method:
             p.error("review needs a method name, or --validate")
         print(briefs.render(root, "reviewer", study, args.method))
+        return 0
+    if args.cmd == "build-checker":
+        print(briefs.render(root, "checker-builder", study))
+        return 0
+    if args.cmd == "attack":
+        print(briefs.render(root, "checker-attacker", study).replace("{{round}}", str(args.round)))
         return 0
     if args.cmd == "repro":
         return _report(runner.repro(sd, params, args.timeout), f"{study}: every matching run reproduced")
@@ -169,6 +175,9 @@ def main(argv: list[str] | None = None) -> int:
     va = sub.add_parser("validate", help="check a study's checker: reference answer, mutations, attacks, grader copies")
     va.add_argument("--study")
     va.add_argument("--run-timeout", type=_duration, default=1800.0)
+    sub.add_parser("build-checker", parents=[common], help="print the checker builder's brief")
+    at = sub.add_parser("attack", parents=[common], help="print the checker attacker's brief")
+    at.add_argument("--round", type=int, default=1)
     keep, rest = _split(sys.argv[1:] if argv is None else argv)
     args = p.parse_args(keep)
     if rest and args.cmd not in ("run", "repro"):
@@ -250,7 +259,7 @@ def main(argv: list[str] | None = None) -> int:
 
     params = _params(rest)
     if args.all_studies:
-        single = (args.cmd == "implement" or (args.cmd in ("extract", "review") and not args.validate)
+        single = (args.cmd in ("implement", "build-checker", "attack") or (args.cmd in ("extract", "review") and not args.validate)
                   or (args.cmd == "run" and not args.all) or args.study)
         if single:
             p.error("--all-studies works with: extract --validate, review --validate, run --all, repro (and not with --study)")
