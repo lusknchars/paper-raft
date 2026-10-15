@@ -18,6 +18,7 @@ jobs:
       - run: uv run raft extract --validate --all-studies
       - run: uv run raft review --validate --all-studies
       - run: uv run raft repro --all-studies
+      - run: uv run raft bench --verify
       - run: uv run raft compare
         env:
           RAFT_REPO_URL: https://github.com/${{ github.repository }}
@@ -27,6 +28,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: node scripts/check_flow.mjs site
+      - run: node scripts/check_bench.mjs site
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:

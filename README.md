@@ -16,6 +16,30 @@ uv run raft compare              # builds site/; open site/index.html
 
 No API key is needed to rerun and check results.
 
+## Bench: bring your agent
+
+How well does *your* agent setup reproduce a real paper? Point Claude Code or Codex, with your own model,
+`AGENTS.md`/`CLAUDE.md` and skills, at a study:
+
+    uv run raft bench --study transduced-lm-2026 --agent codex --setup ./my-setup --label "my AGENTS.md v2"
+    uv run raft bench --study transduced-lm-2026 --agent claude-code --model opus
+    uv run raft bench --study transduced-lm-2026 --agent codex --oss --model gpt-oss:20b   # local model via Ollama, no API key
+    uv run raft bench --agent command --cmd "my-agent --task {brief}"                    # any other tool
+
+The agent works in a blind workspace: the paper's extraction and the problem's interface, with no git history,
+no existing solutions, and no grader or reference numbers on disk. Paper Raft then grades its code with the
+study's own measure in a copy the agent never touched, and writes an entry to `bench/results/<study>/`. Nothing the
+agent says counts, only what its code does.
+
+- `uv run raft bench --table` prints the scoreboard; the site has a **Bench** page.
+- `uv run raft bench --verify` reruns every entry's code and checks its recorded numbers (CI does this on every PR).
+- To join the scoreboard, read your transcript, then open a pull request with your entry folder.
+
+Entries are graded automatically and not reviewed. Tokens, cost and time are reported by the agent's tool and are
+not verified. The agent runs on your machine, where this repository's own solutions are on disk: the brief tells it
+not to look, Claude Code runs without web tools, Codex runs in its workspace sandbox, and code that matches the
+lab's own solver is marked copied and scores zero.
+
 ## Flow view
 
 Every study is also drawn as a chain: the paper, the items extracted from it, the methods built from those items,
@@ -52,7 +76,7 @@ A result shows as **verified** only when it is within tolerance, a reviewer veri
 
 ## Using it with your agent tool
 
-The roles in `roles/` are plain markdown, and `raft extract | implement <m> | review <m>` prints them filled in for a study, so any tool can follow them. Claude Code users get ready-made agents and a `reproduce-paper` skill in `.claude/` (source: `adapters/claude-code/`).
+The roles in `roles/` are plain markdown, and `raft extract | implement <m> | review <m>` prints them filled in for a study, so any tool can follow them. Claude Code users get ready-made agents and a `reproduce-paper` skill in `.claude/` (source: `adapters/claude-code/`). To compare setups, use `raft bench` (above).
 
 ## Add a study or a method
 

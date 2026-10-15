@@ -11,3 +11,5 @@ description: Run the Paper Raft loop for one study (extract, implement in parall
 5. **Compare:** run `uv run raft compare` and open `site/index.html`.
 
 Never lower a study's tolerance to make a method pass. A failed reproduction is a result: commit it.
+
+To score your own agent setup on a study instead of adding to it, use `uv run raft bench` (see the README).
