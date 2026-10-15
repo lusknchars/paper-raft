@@ -6,6 +6,7 @@ import math
 import multiprocessing as mp
 import os
 import platform
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,6 +23,18 @@ def load_module(path: Path, name: str):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def load_measure(problem: Path):
+    """problem/measure.py, with problem/ importable so it can use its copied graders (`from graders import …`)."""
+    problem = str(Path(problem))
+    for name in [n for n in sys.modules if n == "graders" or n.startswith("graders.")]:
+        del sys.modules[name]
+    sys.path.insert(0, problem)
+    try:
+        return load_module(Path(problem) / "measure.py", "raft_measure")
+    finally:
+        sys.path.remove(problem)
 
 
 def _setup_module(study_dir: Path, tag: str):
@@ -130,7 +143,7 @@ def execute(study_dir: Path, method: str, params: dict, timeout: float,
                    "errors": None, "tolerance": None, "pass": False}
         setup_mod = _setup_module(sd, "parent")
         if reason is None:
-            measure_mod = load_module(problem / "measure.py", "raft_measure")
+            measure_mod = load_measure(problem)
             reference = json.loads((problem / "reference.json").read_text())
             try:
                 # A study whose methods make different claims can take `method` and grade each by name.

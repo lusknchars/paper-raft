@@ -51,3 +51,29 @@ def package_versions(names=("numpy", "scipy")) -> dict[str, str]:
         except PackageNotFoundError:
             out[n] = "not installed"
     return out
+
+
+def tracked_hash(path: Path, exclude: tuple[str, ...] = ()) -> str:
+    """sha256 over the git-tracked files under `path`, so ignored clutter (.DS_Store) never changes it.
+
+    Falls back to every file (minus caches) outside git or when nothing under `path` is tracked yet.
+    Top-level names in `exclude` are skipped.
+    """
+    path = Path(path)
+    names = []
+    try:
+        out = subprocess.run(["git", "ls-files", "-z", "--", "."], cwd=path, capture_output=True, check=True).stdout
+        names = sorted(n for n in out.decode().split("\0") if n)
+    except (OSError, subprocess.CalledProcessError):
+        names = []
+    if not names and path.is_dir():
+        names = sorted(f.relative_to(path).as_posix() for f in path.rglob("*")
+                       if f.is_file() and "__pycache__" not in f.parts and f.suffix != ".pyc")
+    h = hashlib.sha256()
+    for n in names:
+        f = path / n
+        if n.split("/")[0] in exclude or not f.is_file():
+            continue
+        h.update(n.encode() + b"\0")
+        h.update(f.read_bytes())
+    return h.hexdigest()

@@ -41,20 +41,7 @@ CODE_LIMIT = 1_000_000  # bytes per file in a method folder
 
 def problem_hash(sd: Path) -> str:
     """Hash of the git-tracked files in problem/, so ignored clutter (.DS_Store) never changes it."""
-    problem = Path(sd) / "problem"
-    try:
-        out = subprocess.run(["git", "ls-files", "-z", "--", "."], cwd=problem, capture_output=True,
-                             check=True).stdout
-    except (OSError, subprocess.CalledProcessError):
-        return provenance.inputs_hash({}, problem)
-    names = sorted(n for n in out.decode().split("\0") if n)
-    if not names:
-        return provenance.inputs_hash({}, problem)
-    h = hashlib.sha256()
-    for n in names:
-        h.update(n.encode() + b"\0")
-        h.update((problem / n).read_bytes())
-    return h.hexdigest()
+    return provenance.tracked_hash(Path(sd) / "problem")
 
 
 def _guarded(root: Path, study: str) -> list[Path]:
