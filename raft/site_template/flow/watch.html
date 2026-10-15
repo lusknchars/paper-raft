@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paper Raft · watch</title>
+  <link rel="stylesheet" href="/flow/flow.css">
+  <script type="importmap">
+  { "imports": { "three": "/vendor/three-0.186.1/build/three.module.js",
+                 "three/addons/": "/vendor/three-0.186.1/examples/jsm/" } }
+  </script>
+  <style>
+    html, body { margin: 0; height: 100%; background: #030305; }
+    #flow { height: 100vh; border-radius: 0; }
+  </style>
+</head>
+<body>
+  <div id="flow"></div>
+  <script type="module">
+    import { mountFlow } from "/flow/flow.js";
+    const data = await (await fetch("/flow.json", { cache: "no-store" })).json();
+    mountFlow(document.getElementById("flow"), data, {
+      live: { url: "/progress.json", interval: 1000 },
+      note: "local · not committed: live progress comes from the runs on this machine",
+    });
+  </script>
+</body>
+</html>
