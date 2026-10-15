@@ -33,15 +33,35 @@ def make_server(root: Path, study: str, port: int) -> http.server.ThreadingHTTPS
             self.end_headers()
             self.wfile.write(body)
 
+        def _json_or_error(self, make) -> None:
+            try:
+                body = json.dumps(make()).encode()
+            except Exception as e:  # noqa: BLE001 (any failure becomes a readable 500)
+                body = json.dumps({"error": f"{type(e).__name__}: {e}"}).encode()
+                self.send_response(500)
+                self.send_header("Content-Type", TYPES[".json"])
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            self._send(body, TYPES[".json"])
+
         def do_GET(self):  # noqa: N802 (http.server's name)
+            port = self.server.server_address[1]
+            if self.headers.get("Host") not in (f"127.0.0.1:{port}", f"localhost:{port}"):
+                return self.send_error(403)
             path = self.path.split("?", 1)[0]
             if path in ("/", "/index.html"):
                 return self._send((static / "flow" / "watch.html").read_bytes(), TYPES[".html"])
             if path == "/flow.json":
-                return self._send(json.dumps(flow.build_flow(root, study)).encode(), TYPES[".json"])
+                return self._json_or_error(lambda: flow.build_flow(root, study))
             if path == "/progress.json":
-                return self._send(json.dumps(read_progress(sd)).encode(), TYPES[".json"])
-            target = (static / path.lstrip("/")).resolve()
+                return self._json_or_error(lambda: read_progress(sd))
+            try:
+                target = (static / path.lstrip("/")).resolve()
+            except (ValueError, OSError):
+                return self.send_error(404)
             if target.is_relative_to(static) and target.is_file() and target.suffix in TYPES:
                 return self._send(target.read_bytes(), TYPES[target.suffix])
             self.send_error(404)
@@ -53,7 +73,10 @@ def make_server(root: Path, study: str, port: int) -> http.server.ThreadingHTTPS
 
 
 def serve(root: Path, study: str, port: int, open_browser: bool) -> None:
-    srv = make_server(root, study, port)
+    try:
+        srv = make_server(root, study, port)
+    except OSError:
+        raise SystemExit(f"raft: port {port} is in use; pass --port <another>")
     url = f"http://127.0.0.1:{srv.server_address[1]}/"
     print(f"✓ watching {study} at {url} (local only; Ctrl-C to stop)", flush=True)
     if open_browser:

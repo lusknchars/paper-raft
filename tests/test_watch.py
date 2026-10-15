@@ -63,3 +63,39 @@ def test_export_refuses_uncommitted_changes_and_writes_assets(tiny_git_study, tm
     assert json.loads((tmp_path / "x.flow.json").read_text())["study"] == "tiny"
     assert (tmp_path / "assets" / "paper-raft-flow" / "flow.js").is_file()
     assert (tmp_path / "assets" / flow.THREE / "build" / "three.module.js").is_file()
+
+
+def test_watch_rejects_foreign_host_header(server):
+    import http.client
+    srv, _ = server
+    host, port = srv.server_address
+    for h, code in (("evil.example", 403), (f"localhost:{port}", 200), (f"127.0.0.1:{port}", 200)):
+        conn = http.client.HTTPConnection(host, port)
+        conn.putrequest("GET", "/progress.json", skip_host=True)
+        conn.putheader("Host", h)
+        conn.endheaders()
+        assert conn.getresponse().status == code
+        conn.close()
+
+
+def test_watch_reports_flow_errors_and_keeps_serving(server):
+    srv, sd = server
+    setup = sd / "problem" / "setup.py"
+    setup.write_text(setup.read_text() + "\ndef expand(params):\n    raise RuntimeError('broken')\n")
+    with pytest.raises(urllib.error.HTTPError) as e:
+        _get(srv, "/flow.json")
+    assert e.value.code == 500 and e.value.headers.get("Content-Type").startswith("application/json")
+    assert "RuntimeError" in json.loads(e.value.read())["error"]
+    assert _get(srv, "/progress.json")[0] == 200
+
+
+def test_watch_nul_byte_path_is_404(server):
+    import http.client
+    srv, _ = server
+    conn = http.client.HTTPConnection(*srv.server_address)
+    try:
+        conn.putrequest("GET", "/a\x00b")
+        conn.endheaders()
+    except Exception:
+        pytest.skip("http.client refuses to send a NUL byte")
+    assert conn.getresponse().status == 404

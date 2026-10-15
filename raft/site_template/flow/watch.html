@@ -18,8 +18,24 @@
   <div id="flow"></div>
   <script type="module">
     import { mountFlow } from "/flow/flow.js";
-    const data = await (await fetch("/flow.json", { cache: "no-store" })).json();
-    mountFlow(document.getElementById("flow"), data, {
+    const host = document.getElementById("flow");
+    let data;
+    while (!data) {
+      let msg;
+      try {
+        const r = await fetch("/flow.json", { cache: "no-store" });
+        if (r.ok) data = await r.json();
+        else msg = (await r.json().catch(() => ({}))).error || `HTTP ${r.status}`;
+      } catch (e) { msg = String(e); }
+      if (!data) {
+        let p = host.querySelector("p");
+        if (!p) { p = document.createElement("p"); p.style.cssText = "color:#e8e8ee;font:14px monospace;padding:1rem"; host.appendChild(p); }
+        p.textContent = "Can't load the flow yet (retrying): " + msg;
+        await new Promise((res) => setTimeout(res, 2000));
+      }
+    }
+    host.textContent = "";
+    mountFlow(host, data, {
       live: { url: "/progress.json", interval: 1000 },
       note: "local · not committed: live progress comes from the runs on this machine",
     });
