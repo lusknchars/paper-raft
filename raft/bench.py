@@ -23,7 +23,7 @@ from pathlib import Path
 
 import yaml
 
-from . import agents, benchboard, briefs, flow, guard, provenance, runner, schema
+from . import agents, benchboard, briefs, flow, guard, live, provenance, runner, schema
 
 _IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", ".git")
 
@@ -175,7 +175,7 @@ def _finite(errors):
 
 
 def grade(root: Path, study: str, code_dir: Path, methods: list[str], run_timeout: float,
-          log=lambda s: None) -> list[dict]:
+          log=lambda s: None, ls=None) -> list[dict]:
     """Run the agent's method folders against a fresh copy of the study's committed problem/."""
     sd = _study_dir(root, study)
     with tempfile.TemporaryDirectory(prefix="raft-grade-") as tmp:
@@ -195,15 +195,30 @@ def grade(root: Path, study: str, code_dir: Path, methods: list[str], run_timeou
                 res["guard"] = guard.scan_method(dst)
             for p in combos:
                 rid = runner.run_id(m, p)
+                sid = f"run-{rid}"
+                if ls:
+                    ls.begin(sid, rid, method=m, timeout_s=run_timeout)
                 if not has or copied:
                     run = {"run_id": rid, "params": p, "status": "failed", "pass": False,
                            "reason": "no solver.py" if not has else "matches the lab's own code", "errors": None}
                 else:
-                    _, r = runner.execute(g, m, p, run_timeout)
+                    pdir = Path(tmp) / "progress"
+                    if ls:
+                        with live.watching_progress(ls, pdir / f"{rid}.json"):
+                            _, r = runner.execute(g, m, p, run_timeout, progress_dir=pdir)
+                    else:
+                        _, r = runner.execute(g, m, p, run_timeout)
                     run = {"run_id": rid, "params": p, "status": r["status"], "pass": bool(r["pass"]),
                            "reason": r.get("reason"), "errors": _finite(r.get("errors"))}
                 log(f"{'✓' if run['pass'] else '✗'} {rid}" + (f": {run['reason']}" if run["reason"] else ""))
                 res["runs"].append(run)
+                if ls:
+                    ls.end(sid, "done" if run["pass"] else "failed", detail=run["reason"])
+                    graded = [x for o in out + [res] for x in o["runs"]]
+                    passed = sum(x["pass"] for x in graded)
+                    expected = len(methods) * len(combos)
+                    ls.set_results(passed=passed, failed=len(graded) - passed, expected=expected,
+                                   score=round(passed / expected, 4) if expected else 0.0)
             out.append(res)
         return out
 
@@ -237,7 +252,7 @@ def trim_copy(src: Path, dst: Path, limit: int = TRANSCRIPT_LIMIT) -> None:
 
 
 def run_bench(root: Path, study: str, agent: str, *, model=None, oss=False, setup=None, methods=None, label=None,
-              cmd=None, timeout: float = 1800.0, run_timeout: float = 1800.0, out_dir=None, log=print) -> Path:
+              cmd=None, timeout: float = 1800.0, run_timeout: float = 1800.0, out_dir=None, log=print, on_live=None) -> Path:
     root = Path(root).resolve()
     sd = _study_dir(root, study)
     agents.check(agent, model=model, oss=oss, cmd=cmd)
@@ -253,6 +268,30 @@ def run_bench(root: Path, study: str, agent: str, *, model=None, oss=False, setu
     checker.gate(root, study)
     setup = Path(setup).resolve() if setup else None
     specs = flow.metric_specs(_paper(sd))
+    paper = _paper(sd)
+    combos = runner.expand(sd, {})
+    ls = live.Session(root, "bench", study, title=paper.get("title"),
+                      arxiv=str(paper["arxiv"]) if paper.get("arxiv") else None,
+                      agents={"agent": {"tool": agent, "model": model}},
+                      total=len(chosen) * (1 + len(combos)), on_write=on_live)
+    try:
+        dest = _bench_body(root, study, sd, agent, chosen, ls, model=model, oss=oss, setup=setup, label=label,
+                           cmd=cmd, timeout=timeout, run_timeout=run_timeout, out_dir=out_dir, log=log, specs=specs)
+    except SystemExit as e:
+        ls.stop(str(e.code if e.code is not None else "stopped"))
+        raise
+    except KeyboardInterrupt:
+        ls.stop("interrupted (Ctrl-C)")
+        raise
+    except Exception as e:  # noqa: BLE001
+        ls.stop(f"{type(e).__name__}: {e}")
+        raise
+    ls.finish(f"bench entry: {dest}")
+    return dest
+
+
+def _bench_body(root, study, sd, agent, chosen, ls, *, model, oss, setup, label, cmd, timeout, run_timeout,
+                out_dir, log, specs) -> Path:
     with tempfile.TemporaryDirectory(prefix="raft-bench-") as tmp:
         ws = make_workspace(root, study, Path(tmp) / "ws", setup)
         logs = Path(tmp) / "logs"
@@ -263,15 +302,20 @@ def run_bench(root: Path, study: str, agent: str, *, model=None, oss=False, setu
             brief = logs / f"{m}.md"
             brief.write_text(render_brief(root, study, m, python))
             log(f"• {agent}: {m} …")
-            t = tried[m] = agents.run(agent, brief, ws, m, model=model, oss=oss, cmd=cmd, timeout=timeout,
-                                      transcript=logs / f"{m}.jsonl")
+            sid = f"implement-{m}"
+            ls.begin(sid, f"Implement {m}", agent="agent", method=m, timeout_s=timeout)
+            with live.watching(ls, sid, agent, logs / f"{m}.jsonl"):
+                t = tried[m] = agents.run(agent, brief, ws, m, model=model, oss=oss, cmd=cmd, timeout=timeout,
+                                          transcript=logs / f"{m}.jsonl")
+            ls.end(sid, "done" if t["exit"] == 0 and not t["timed_out"] else "failed",
+                   detail="timed out" if t["timed_out"] else f"agent exited {t['exit']}")
             log(f"  {m}: " + ("timed out" if t["timed_out"] else f"agent exited {t['exit']}") + f" after {t['wall_s']:.0f}s")
         if provenance.is_dirty(root, _guarded(root, study)):
             raise SystemExit(f"raft: studies/{study} or raft/ changed while the agent ran; nothing was graded. "
                              "Check `git status`, restore the files, and run the bench again.")
         code = ws / "studies" / study / "methods"
         log("• grading in a fresh copy of problem/ …")
-        graded = grade(root, study, code, chosen, run_timeout, log)
+        graded = grade(root, study, code, chosen, run_timeout, log, ls=ls)
         out_methods = [{"name": g["name"], "agent_exit": tried[g["name"]]["exit"],
                         "timed_out": tried[g["name"]]["timed_out"], "wall_s": tried[g["name"]]["wall_s"],
                         "usage": tried[g["name"]]["usage"], "guard": g["guard"],
