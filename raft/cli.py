@@ -38,7 +38,8 @@ def _params(rest: list[str]) -> dict:
 # Options raft itself understands; every other --key [value] is a study parameter.
 KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out", "--title", "--doi", "--help", "-h",
          "--assets", "--port", "--no-open", "--agent", "--model", "--oss", "--setup", "--methods", "--label", "--cmd",
-         "--run-timeout", "--verify", "--table", "--force", "--arxiv", "--id", "--brief", "--round", "--without-attacks"}
+         "--run-timeout", "--verify", "--table", "--force", "--arxiv", "--id", "--brief", "--round", "--without-attacks", "--attacker", "--attacker-model", "--attacker-cmd",
+         "--rounds"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -187,6 +188,20 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--without-attacks", action="store_true",
                     help="only for a study with runs made before the checker gate")
     ap.add_argument("--run-timeout", type=_duration, default=1800.0)
+    pr = sub.add_parser("prepare", help="from an arXiv id or a draft study to a checker ready for your approval, with agents")
+    pr.add_argument("--arxiv")
+    pr.add_argument("--study")
+    pr.add_argument("--id", dest="new_id")
+    pr.add_argument("--brief")
+    pr.add_argument("--agent", choices=("claude-code", "codex", "command"), required=True)
+    pr.add_argument("--model")
+    pr.add_argument("--cmd", dest="agent_cmd")
+    pr.add_argument("--attacker", choices=("claude-code", "codex", "command"))
+    pr.add_argument("--attacker-model")
+    pr.add_argument("--attacker-cmd")
+    pr.add_argument("--timeout", type=_duration, default=2700.0, help="per agent step (default 45m)")
+    pr.add_argument("--run-timeout", type=_duration, default=1800.0)
+    pr.add_argument("--rounds", type=int, default=3)
     keep, rest = _split(sys.argv[1:] if argv is None else argv)
     args = p.parse_args(keep)
     if rest and args.cmd not in ("run", "repro"):
@@ -271,6 +286,14 @@ def main(argv: list[str] | None = None) -> int:
         study = paths.resolve_study(root, args.study)
         path = checker.approve(root, study, without_attacks=args.without_attacks, run_timeout=args.run_timeout)
         print(f"✓ approved: {path.relative_to(root)}. Commit it; runs and bench now work on {study}.")
+        return 0
+
+    if args.cmd == "prepare":
+        from . import prepare
+        prepare.prepare(root, agent=args.agent, arxiv=args.arxiv, study=args.study, study_id=args.new_id,
+                        brief_url=args.brief, model=args.model, cmd=args.agent_cmd, attacker=args.attacker,
+                        attacker_model=args.attacker_model, attacker_cmd=args.attacker_cmd, timeout=args.timeout,
+                        run_timeout=args.run_timeout, rounds=args.rounds)
         return 0
 
     params = _params(rest)
