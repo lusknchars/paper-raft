@@ -83,6 +83,8 @@ def make_tiny_study(root: Path, git_repo: bool = False) -> Path:
     (root / "roles").mkdir()
     for role in ("extractor", "implementer", "reviewer"):
         (root / "roles" / f"{role}.md").write_text(f"# {role} for {{{{study}}}} {{{{method}}}} at {{{{study_dir}}}} pdf {{{{pdf}}}}\n")
+    (root / "roles" / "bench-implementer.md").write_text(
+        "# bench {{study}} {{method}} at {{study_dir}} python {{python}}\n")
     sd = root / "studies" / "tiny"
     (sd / "problem").mkdir(parents=True)
     (sd / "paper.yaml").write_text("title: Tiny\ncitation: Tiny test study\ndoi: 10.0000/tiny\npdf: papers/tiny.pdf\n")
