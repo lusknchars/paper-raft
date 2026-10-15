@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "One study's flow: paper → extracted items → methods → runs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "study", "source", "paper", "items", "methods", "cases", "runs", "metrics"],
+  "properties": {
+    "schema": {"const": 1},
+    "study": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "source": {
+      "type": "object", "additionalProperties": false, "required": ["repo", "commit", "built_at"],
+      "properties": {"repo": {"type": ["string", "null"]}, "commit": {"type": "string"}, "built_at": {"type": "string"}}
+    },
+    "paper": {
+      "type": "object", "additionalProperties": false,
+      "required": ["title", "authors_short", "reference_checked", "draft"],
+      "properties": {"title": {"type": "string"}, "authors_short": {"type": "string"},
+                     "reference_checked": {"type": "boolean"}, "draft": {"type": "boolean"}}
+    },
+    "items": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false, "required": ["id", "kind"],
+      "properties": {"id": {"type": "string"}, "kind": {"type": "string"}}}},
+    "methods": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false, "required": ["name", "implements", "status", "color"],
+      "properties": {"name": {"type": "string"}, "implements": {"type": "array", "items": {"type": "string"}},
+                     "status": {"enum": ["verified", "unverified", "failed", "no run"]},
+                     "color": {"type": "integer", "minimum": 0}}}},
+    "cases": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false, "required": ["key", "label"],
+      "properties": {"key": {"type": "string"}, "label": {"type": "string"}}}},
+    "runs": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false,
+      "required": ["run_id", "method", "params", "case", "status", "pass", "started_at", "metrics"],
+      "properties": {
+        "run_id": {"type": "string"}, "method": {"type": "string"}, "params": {"type": "object"},
+        "case": {"type": "string"},
+        "status": {"enum": ["verified", "unverified", "failed", "stale", "missing"]},
+        "pass": {"type": "boolean"}, "started_at": {"type": ["string", "null"]},
+        "metrics": {"type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["key", "value"],
+          "properties": {"key": {"type": "string"}, "value": {"type": "number"}}}}}}},
+    "metrics": {"type": "array", "items": {
+      "type": "object", "additionalProperties": false, "required": ["key", "label", "note", "agg", "format"],
+      "properties": {"key": {"type": "string"}, "label": {"type": "string"}, "note": {"type": "string"},
+                     "agg": {"enum": ["max", "min", "mean"]},
+                     "format": {"enum": ["sigma", "drop_percent", "sci", "kept_percent", "percent", "number"]}}}}
+  }
+}
