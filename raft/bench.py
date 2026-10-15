@@ -8,16 +8,20 @@ counts.
 """
 import difflib
 import hashlib
+import json
 import math
+import platform
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
 
-from . import briefs, guard, provenance, runner
+from . import agents, benchboard, briefs, flow, guard, provenance, runner, schema
 
 _IGNORE = shutil.ignore_patterns("__pycache__", "*.pyc", ".git")
 
@@ -150,3 +154,150 @@ def grade(root: Path, study: str, code_dir: Path, methods: list[str], run_timeou
                 res["runs"].append(run)
             out.append(res)
         return out
+
+
+TRANSCRIPT_LIMIT = 2_000_000
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9.]+", "-", text.lower()).strip("-.") or "default"
+
+
+def _code_hash(code_dir: Path, methods: list[str]) -> str:
+    h = hashlib.sha256()
+    for m in methods:
+        d = Path(code_dir) / m
+        for p in sorted(d.rglob("*")) if d.is_dir() else []:
+            if p.is_file() and "__pycache__" not in p.parts:
+                h.update(f"{m}/{p.relative_to(d).as_posix()}".encode() + b"\0")
+                h.update(p.read_bytes())
+    return h.hexdigest()
+
+
+def trim_copy(src: Path, dst: Path, limit: int = TRANSCRIPT_LIMIT) -> None:
+    data = Path(src).read_bytes() if Path(src).is_file() else b""
+    if len(data) > limit:
+        head = data[: limit // 2].rsplit(b"\n", 1)[0]
+        tail = data[-(limit // 2):].split(b"\n", 1)[-1]
+        marker = json.dumps({"raft_trimmed_bytes": len(data) - len(head) - len(tail)}).encode()
+        data = head + b"\n" + marker + b"\n" + tail
+    Path(dst).parent.mkdir(parents=True, exist_ok=True)
+    Path(dst).write_bytes(data)
+
+
+def run_bench(root: Path, study: str, agent: str, *, model=None, oss=False, setup=None, methods=None, label=None,
+              cmd=None, timeout: float = 1800.0, run_timeout: float = 1800.0, out_dir=None, log=print) -> Path:
+    root = Path(root).resolve()
+    sd = _study_dir(root, study)
+    agents.check(agent, model=model, oss=oss, cmd=cmd)
+    lab = runner.methods(sd)
+    chosen = list(methods) if methods else lab
+    if not chosen:
+        raise SystemExit(f"raft: {study} has no methods to bench")
+    unknown = [m for m in chosen if m not in lab]
+    if unknown:
+        raise SystemExit(f"raft: unknown method(s) {', '.join(unknown)} (have: {', '.join(lab)})")
+    require_clean(root, study)
+    setup = Path(setup).resolve() if setup else None
+    specs = flow.metric_specs(_paper(sd))
+    with tempfile.TemporaryDirectory(prefix="raft-bench-") as tmp:
+        ws = make_workspace(root, study, Path(tmp) / "ws", setup)
+        logs = Path(tmp) / "logs"
+        logs.mkdir()
+        tried = {}
+        for m in chosen:
+            brief = logs / f"{m}.md"
+            brief.write_text(render_brief(root, study, m))
+            log(f"• {agent}: {m} …")
+            t = tried[m] = agents.run(agent, brief, ws, m, model=model, oss=oss, cmd=cmd, timeout=timeout,
+                                      transcript=logs / f"{m}.jsonl")
+            log(f"  {m}: " + ("timed out" if t["timed_out"] else f"agent exited {t['exit']}") + f" after {t['wall_s']:.0f}s")
+        code = ws / "studies" / study / "methods"
+        log("• grading in a fresh copy of problem/ …")
+        graded = grade(root, study, code, chosen, run_timeout, log)
+        out_methods = [{"name": g["name"], "agent_exit": tried[g["name"]]["exit"],
+                        "timed_out": tried[g["name"]]["timed_out"], "wall_s": tried[g["name"]]["wall_s"],
+                        "usage": tried[g["name"]]["usage"], "guard": g["guard"],
+                        "copied_from_lab": g["copied_from_lab"], "runs": g["runs"]} for g in graded]
+        now = datetime.now(timezone.utc)
+        eid = f"{now:%Y-%m-%d}-{_slug(agent)}-{_slug(model or 'default')}-{_code_hash(code, chosen)[:6]}"
+        entry = runner._plain({
+            "schema": 1, "id": eid, "study": study, "created_at": now.isoformat(timespec="seconds"),
+            "raft_commit": provenance.git_sha(root), "problem_hash": problem_hash(sd),
+            "entrant": {"agent": agent, "tool_version": agents.tool_version(agent), "model": model, "oss": bool(oss),
+                        "label": label, "command": cmd, "isolation": agents.ISOLATION[agent],
+                        "setup": setup_info(setup)},
+            "machine": {"os": platform.platform(), "python": platform.python_version()},
+            "methods": out_methods, "score": benchboard.score_counts(out_methods),
+            "metrics": benchboard.aggregate_metrics(specs, out_methods),
+        })
+        schema.check("bench-entry", entry)
+        dest = (Path(out_dir) if out_dir else root / "bench" / "results" / study) / eid
+        if dest.exists():
+            raise SystemExit(f"raft: {dest} already exists")
+        (dest / "methods").mkdir(parents=True)
+        for m in chosen:
+            if (code / m).is_dir():
+                shutil.copytree(code / m, dest / "methods" / m, ignore=_IGNORE)
+            trim_copy(logs / f"{m}.jsonl", dest / "transcript" / f"{m}.jsonl")
+            if (logs / f"{m}.stderr.txt").is_file() and (logs / f"{m}.stderr.txt").stat().st_size:
+                trim_copy(logs / f"{m}.stderr.txt", dest / "transcript" / f"{m}.stderr.txt")
+        (dest / "entry.json").write_text(json.dumps(entry, indent=1, ensure_ascii=False) + "\n")
+    return dest
+
+
+def entry_dirs(root: Path) -> list[Path]:
+    return [p.parent for p in sorted((Path(root) / "bench" / "results").glob("*/*/entry.json"))]
+
+
+def _close(a, b, rtol: float) -> bool:
+    if a is None or b is None:
+        return a is b
+    return math.isclose(a, b, rel_tol=rtol, abs_tol=1e-12)
+
+
+def verify(root: Path, entry_dir: Path, run_timeout: float = 1800.0, log=lambda s: None) -> list[str]:
+    """Rerun an entry's code against today's problem/ and check every recorded number."""
+    root, entry_dir = Path(root).resolve(), Path(entry_dir).resolve()
+    try:
+        entry = schema.load("bench-entry", entry_dir / "entry.json")
+    except schema.ContractError as e:
+        return [str(e)]
+    eid, study = entry["id"], entry["study"]
+    if entry_dir.name != eid or entry_dir.parent.name != study:
+        return [f"{entry_dir.name}: study and id do not match the folder"]
+    sd = _study_dir(root, study)
+    if not (sd / "paper.yaml").is_file():
+        return [f"{eid}: unknown study {study!r}"]
+    if problem_hash(sd) != entry["problem_hash"]:
+        return [f"{eid}: studies/{study}/problem changed since this entry; rerun the bench"]
+    names = [m["name"] for m in entry["methods"]]
+    graded = grade(root, study, entry_dir / "methods", names, run_timeout, log)
+    setup_mod = runner.load_module(sd / "problem" / "setup.py", f"raft_bench_{study.replace('-', '_')}")
+    rtol = float(getattr(setup_mod, "REPRO_RTOL", 1e-8))
+    problems = []
+    for old, new in zip(entry["methods"], graded):
+        n = old["name"]
+        if old["guard"] != new["guard"]:
+            problems.append(f"{n}: guard result differs")
+        if old["copied_from_lab"] != new["copied_from_lab"]:
+            problems.append(f"{n}: copy check differs")
+        o_runs = {r["run_id"]: r for r in old["runs"]}
+        n_runs = {r["run_id"]: r for r in new["runs"]}
+        if set(o_runs) != set(n_runs):
+            problems.append(f"{n}: the run matrix differs")
+            continue
+        for rid, o in o_runs.items():
+            x = n_runs[rid]
+            if o["status"] != x["status"] or o["pass"] != x["pass"]:
+                problems.append(f"{rid}: recorded {o['status']}/{'pass' if o['pass'] else 'fail'}, "
+                                f"rerun gives {x['status']}/{'pass' if x['pass'] else 'fail'}")
+            elif not runner._same(o["errors"], x["errors"], rtol):
+                problems.append(f"{rid}: errors differ beyond rtol {rtol:g}")
+    if entry["score"] != benchboard.score_counts(entry["methods"]):
+        problems.append("score does not match the recorded runs")
+    again = benchboard.aggregate_metrics(flow.metric_specs(_paper(sd)), entry["methods"])
+    if ([m["key"] for m in again] != [m["key"] for m in entry["metrics"]]
+            or not all(_close(a["value"], b["value"], rtol) for a, b in zip(again, entry["metrics"]))):
+        problems.append("metrics do not match the recorded runs")
+    return [f"{eid}: {p}" for p in problems]

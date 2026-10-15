@@ -1,5 +1,7 @@
-"""raft: new | extract | implement | run | review | repro | compare | watch | flow-export."""
+"""raft: new | extract | implement | run | review | repro | compare | watch | flow-export | bench."""
 import argparse
+import json
+import re
 import sys
 from pathlib import Path
 
@@ -35,7 +37,8 @@ def _params(rest: list[str]) -> dict:
 
 # Options raft itself understands; every other --key [value] is a study parameter.
 KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out", "--title", "--doi", "--help", "-h",
-         "--assets", "--port", "--no-open"}
+         "--assets", "--port", "--no-open", "--agent", "--model", "--oss", "--setup", "--methods", "--label", "--cmd",
+         "--run-timeout", "--verify", "--table"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -60,6 +63,13 @@ def _report(problems: list[str], ok: str) -> int:
         return 1
     print(f"✓ {ok}")
     return 0
+
+
+def _duration(text: str) -> float:
+    m = re.fullmatch(r"(\d+(?:\.\d+)?)([smh]?)", text.strip())
+    if not m:
+        raise argparse.ArgumentTypeError(f"not a duration: {text!r} (use 90s, 30m or 2h)")
+    return float(m.group(1)) * {"": 1, "s": 1, "m": 60, "h": 3600}[m.group(2)]
 
 
 def _study_cmd(p, args, root: Path, study: str, params: dict) -> int:
@@ -135,6 +145,19 @@ def main(argv: list[str] | None = None) -> int:
     fe.add_argument("--study")
     fe.add_argument("--out", required=True)
     fe.add_argument("--assets")
+    b = sub.add_parser("bench", help="give a study to your agent in a blind workspace, grade its code, write a scoreboard entry")
+    b.add_argument("--study")
+    b.add_argument("--agent", choices=("claude-code", "codex", "command"))
+    b.add_argument("--model")
+    b.add_argument("--oss", action="store_true", help="codex only: use a local model through codex --oss")
+    b.add_argument("--setup", help="your setup folder (AGENTS.md, CLAUDE.md, .claude/skills, …), copied onto the workspace")
+    b.add_argument("--methods", help="comma-separated; default: every method of the study")
+    b.add_argument("--label", help="a short name for your setup on the scoreboard")
+    b.add_argument("--cmd", dest="agent_cmd", help="with --agent command: your tool's command line, with {brief} (and {workspace}, {method})")
+    b.add_argument("--timeout", type=_duration, default=1800.0, help="per method, for the agent (default 30m)")
+    b.add_argument("--run-timeout", type=_duration, default=1800.0, help="per graded run (default 30m)")
+    b.add_argument("--verify", nargs="*", metavar="ENTRY", help="rerun entries (default: every entry) and check their numbers")
+    b.add_argument("--table", action="store_true", help="print the scoreboard as markdown")
     keep, rest = _split(sys.argv[1:] if argv is None else argv)
     args = p.parse_args(keep)
     if rest and args.cmd not in ("run", "repro"):
@@ -163,6 +186,34 @@ def main(argv: list[str] | None = None) -> int:
         out = Path(args.out).resolve()
         flow.export(root, study, out, Path(args.assets).resolve() if args.assets else None, compare.repo_url(root))
         print(f"✓ {study}: flow written to {out}" + (f", view files to {args.assets}" if args.assets else ""))
+        return 0
+
+    if args.cmd == "bench":
+        from . import bench, benchboard
+        if args.table:
+            print(benchboard.table(root, args.study))
+            return 0
+        if args.verify is not None:
+            dirs = [Path(d).resolve() for d in args.verify] or bench.entry_dirs(root)
+            if not dirs:
+                print("• no bench entries to verify")
+                return 0
+            problems = []
+            for d in dirs:
+                found = bench.verify(root, d, args.run_timeout)
+                print(f"{'✗' if found else '✓'} {d.name}", flush=True)
+                problems += found
+            return _report(problems, f"{len(dirs)} bench {'entry' if len(dirs) == 1 else 'entries'} reproduced")
+        if not args.agent:
+            p.error("bench needs --agent (or --table, or --verify)")
+        study = paths.resolve_study(root, args.study)
+        methods = [m.strip() for m in args.methods.split(",") if m.strip()] if args.methods else None
+        dest = bench.run_bench(root, study, args.agent, model=args.model, oss=args.oss, setup=args.setup,
+                               methods=methods, label=args.label, cmd=args.agent_cmd, timeout=args.timeout,
+                               run_timeout=args.run_timeout)
+        entry = json.loads((dest / "entry.json").read_text())
+        print(f"✓ score {entry['score']['passed']}/{entry['score']['expected']} → {dest.relative_to(root)}\n"
+              "  Read the transcript before sharing it, then commit the folder and open a pull request to join the scoreboard.")
         return 0
 
     params = _params(rest)
