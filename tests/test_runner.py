@@ -129,3 +129,27 @@ def test_repro_writes_no_progress(tiny_git_study):
     commit_all(tiny_git_study.parents[1], "run")
     runner.repro(tiny_git_study, {}, timeout=60)
     assert not (tiny_git_study / "runs" / ".progress").exists()
+
+
+def test_repro_of_a_progress_solver_passes_a_noop_progress(tiny_git_study):
+    from conftest import add_method, commit_all
+    import shutil
+    add_method(tiny_git_study, "prog", PROGRESS_SOLVER)
+    commit_all(tiny_git_study.parents[1], "add solver")
+    runner.run_one(tiny_git_study, "prog", {"n": 8}, timeout=60)
+    shutil.rmtree(tiny_git_study / "runs" / ".progress")
+    commit_all(tiny_git_study.parents[1], "run")
+    assert runner.repro(tiny_git_study, {"n": 8}, timeout=60) == []
+    assert not (tiny_git_study / "runs" / ".progress").exists()
+
+
+def test_progress_file_is_finished_even_when_execute_fails_after_running(tiny_study, monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError("schema broke")
+    monkeypatch.setattr(runner.schema, "check", boom)
+    with pytest.raises(RuntimeError, match="schema broke"):
+        runner.run_one(tiny_study, "exact", {"n": 8}, timeout=60)
+    progress = list((tiny_study / "runs" / ".progress").glob("*.json"))
+    assert len(progress) == 1
+    p = json.loads(progress[0].read_text())
+    assert p["state"] == "finished" and p["pass"] is False
