@@ -38,7 +38,7 @@ def _params(rest: list[str]) -> dict:
 # Options raft itself understands; every other --key [value] is a study parameter.
 KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out", "--title", "--doi", "--help", "-h",
          "--assets", "--port", "--no-open", "--agent", "--model", "--oss", "--setup", "--methods", "--label", "--cmd",
-         "--run-timeout", "--verify", "--table"}
+         "--run-timeout", "--verify", "--table", "--force"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -158,6 +158,11 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--run-timeout", type=_duration, default=1800.0, help="per graded run (default 30m)")
     b.add_argument("--verify", nargs="*", metavar="ENTRY", help="rerun entries (default: every entry) and check their numbers")
     b.add_argument("--table", action="store_true", help="print the scoreboard as markdown")
+    gr = sub.add_parser("grader", help="copy a grader from the library into a study's problem/graders/")
+    gr.add_argument("action", choices=("add",))
+    gr.add_argument("name")
+    gr.add_argument("--study")
+    gr.add_argument("--force", action="store_true")
     keep, rest = _split(sys.argv[1:] if argv is None else argv)
     args = p.parse_args(keep)
     if rest and args.cmd not in ("run", "repro"):
@@ -214,6 +219,13 @@ def main(argv: list[str] | None = None) -> int:
         entry = json.loads((dest / "entry.json").read_text())
         print(f"✓ score {entry['score']['passed']}/{entry['score']['expected']} → {dest.relative_to(root)}\n"
               "  Read the transcript before sharing it, then commit the folder and open a pull request to join the scoreboard.")
+        return 0
+
+    if args.cmd == "grader":
+        from . import graders
+        study = paths.resolve_study(root, args.study)
+        path = graders.add(root / "studies" / study, args.name, force=args.force)
+        print(f"✓ copied {args.name} to {path.relative_to(root)}; use it in measure.py with `from graders import {args.name}`")
         return 0
 
     params = _params(rest)
