@@ -65,11 +65,13 @@ def case_label(params: dict) -> str:
     return " · ".join(str(params[k]) for k in sorted(params))
 
 
-def _expected(sd: Path) -> list[dict]:
+def _expected(sd: Path, draft: bool) -> list[dict]:
     try:
         return runner.expand(sd, {})
-    except Exception:  # a draft's problem/ may not run yet
-        return []
+    except Exception:
+        if not draft:
+            raise
+        return []  # a draft's problem/ may not run yet
 
 
 def _run(sd: Path, root: Path, name: str, params: dict, review, sha_now, specs) -> dict:
@@ -101,7 +103,7 @@ def build_flow(root: Path, study: str, repo: str | None = None) -> dict:
     items = [{"id": i["id"], "kind": i["kind"]} for i in (_load(sd / "extraction.json") or {}).get("items", [])]
     ids = {i["id"] for i in items}
     names = runner.methods(sd)
-    combos = _expected(sd) if names else []
+    combos = _expected(sd, bool(paper.get("draft"))) if names else []
     methods, runs = [], []
     for color, name in enumerate(names):
         mjson = _load(sd / "methods" / name / "method.json") or {}

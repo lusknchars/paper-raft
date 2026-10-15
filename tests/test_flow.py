@@ -104,3 +104,13 @@ def test_authors_short():
                                "citation": "Snæbjarnarson, V. (2026). Stochastic ..."}) == "Snæbjarnarson et al. 2026"
     assert flow.authors_short({"authors": ["U. Ghia"], "citation": "(1982) JCP"}) == "Ghia 1982"
     assert flow.authors_short({}) == ""
+
+
+def test_broken_problem_fails_unless_draft(tiny_git_study):
+    sd = tiny_git_study
+    setup = sd / "problem" / "setup.py"
+    setup.write_text(setup.read_text() + "\ndef expand(params):\n    raise RuntimeError('broken')\n")
+    with pytest.raises(RuntimeError, match="broken"):
+        flow.build_flow(_root(sd), "tiny")
+    (sd / "paper.yaml").write_text((sd / "paper.yaml").read_text() + "draft: true\n")
+    assert flow.build_flow(_root(sd), "tiny")["runs"] == []
