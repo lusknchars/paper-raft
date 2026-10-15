@@ -64,6 +64,10 @@ VALID = {
                                "reason": None, "errors": {"y_max": 0.0}}]}],
         "score": {"passed": 1, "expected": 1}, "metrics": [],
     },
+    "checker-review": {
+        "study": "tiny", "builder_agent": "codex:checker-builder", "attacker_agent": "claude-code:checker-attacker",
+        "rounds": [{"round": 1, "attacks": [{"name": "zeros", "idea": "return zeros", "blocked": True}]}],
+    },
 }
 
 

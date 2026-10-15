@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Paper Raft checker review (the attacker's record)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["study", "builder_agent", "attacker_agent", "rounds"],
+  "properties": {
+    "study": {"type": "string", "minLength": 1},
+    "builder_agent": {"type": "string", "minLength": 1},
+    "attacker_agent": {"type": "string", "minLength": 1},
+    "rounds": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["round", "attacks"],
+        "properties": {
+          "round": {"type": "integer", "minimum": 1},
+          "attacks": {
+            "type": "array",
+            "items": {
+              "type": "object", "additionalProperties": false, "required": ["name", "idea", "blocked"],
+              "properties": {"name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+                             "idea": {"type": "string", "minLength": 1}, "blocked": {"type": "boolean"}}
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -166,6 +166,9 @@ def main(argv: list[str] | None = None) -> int:
     gr.add_argument("name")
     gr.add_argument("--study")
     gr.add_argument("--force", action="store_true")
+    va = sub.add_parser("validate", help="check a study's checker: reference answer, mutations, attacks, grader copies")
+    va.add_argument("--study")
+    va.add_argument("--run-timeout", type=_duration, default=1800.0)
     keep, rest = _split(sys.argv[1:] if argv is None else argv)
     args = p.parse_args(keep)
     if rest and args.cmd not in ("run", "repro"):
@@ -239,6 +242,11 @@ def main(argv: list[str] | None = None) -> int:
         path = graders.add(root / "studies" / study, args.name, force=args.force)
         print(f"✓ copied {args.name} to {path.relative_to(root)}; use it in measure.py with `from graders import {args.name}`")
         return 0
+
+    if args.cmd == "validate":
+        from . import checker
+        study = paths.resolve_study(root, args.study)
+        return _report(checker.validate(root, study, args.run_timeout), f"{study}: the checker holds")
 
     params = _params(rest)
     if args.all_studies:
