@@ -43,6 +43,24 @@ workspace sandbox, bench refuses to grade if the repository changed while the ag
 matches the lab's own solver is marked copied. That last check is a tripwire, not a guarantee; maintainers read
 every entry's code before merging it.
 
+## Add a paper with one command
+
+    uv run raft prepare --arxiv 2608.27428 --agent codex --attacker claude-code
+
+Paper Raft fetches the record and PDF from arXiv (official endpoints only; the PDF stays in `papers/`, never
+committed), has an agent extract the paper and build its checker (the grader, in `problem/`, plus a plain
+`checker/NOTE.md` on what is and is not tested), and has a second agent attack that checker for up to three rounds.
+Paper Raft itself checks every checker: the paper's own answer must pass (or fail, when the claim is about
+estimation), broken copies of it (NaN, wrong shape, zeros, scaled, shuffled) must fail, and every saved attack must
+fail. It stops at your approval:
+
+    uv run raft approve --study <study>
+
+which only works in your terminal, where you read the note and the attack rounds and type the study id. After
+that, `raft bench` and `raft run` work on the new paper, and they refuse to run if the checker changes until it is
+attacked and approved again. Step by step instead: `raft new --arxiv`, `raft extract`, `raft build-checker`,
+`raft validate`, `raft attack`, `raft approve`. Graders come from a small library: `raft grader add <checks|table|claims>`.
+
 ## Flow view
 
 Every study is also drawn as a chain: the paper, the items extracted from it, the methods built from those items,

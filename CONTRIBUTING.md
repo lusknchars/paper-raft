@@ -8,7 +8,7 @@
 5. Open a PR. A maintainer or a different agent reviews it with `uv run raft review <your-method>`; you can't review your own method (`--study <study>` as above).
 
 ## Add a study (a new paper)
-Start with `uv run raft new <id> --title "…" --doi "…"`. That creates a draft folder, which `--all-studies` and the site skip until you remove `draft: true` from `paper.yaml`. Fill in:
+For an arXiv paper, run `uv run raft prepare --arxiv <id> --agent <claude-code|codex>` (see the README); it ends at `raft approve`, which only the maintainer runs. By hand: start with `uv run raft new <id> --title "…" --doi "…"` (or `raft new --arxiv <id>`). That creates a draft folder, which `--all-studies` and the site skip until you remove `draft: true` from `paper.yaml`. Fill in:
 - `paper.yaml`: `title`, `authors`, `citation`, `doi`, `pdf` (a local path under `papers/`; never commit the PDF), `experiment`
 - `problem/setup.py`: `make_setup(params)`, `expand(params)`, `HEADLINE`, optional `REPRO_RTOL`, and a docstring that defines the `solve(setup)` interface
 - `problem/measure.py`: `measure(setup, fields, reference)` (give it a parameter named `method` if methods are graded against different claims) returning `samples`, `reference_samples`, `errors`, `tolerance`, `pass`, and optionally `fields_coarse`

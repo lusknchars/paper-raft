@@ -23,6 +23,13 @@ function el(tag, attrs = {}, ...kids) {
 const fmt = (x) => (x == null ? "—" : x !== 0 && Math.abs(x) < 1e-3 ? x.toExponential(2) : x.toFixed(4));
 const badge = (s) => el("span", { class: "badge " + s.replace(" ", "-") }, s);
 const same = (a, b) => String(a) === String(b);
+const CHECKER = {
+  "approved": (c) => `checker approved after ${c.rounds} attack round${c.rounds === 1 ? "" : "s"}`,
+  "approved-before-attacks": () => "checker approved before attack rounds existed",
+  "stale": () => "checker changed since approval",
+  "missing": () => "checker not approved",
+};
+const checkerLine = (s) => s.checker ? el("p", { class: "muted" }, CHECKER[s.checker.state](s.checker)) : null;
 
 let flowHandle = null;
 function clear() {
@@ -78,6 +85,7 @@ function overview() {
     app.append(el("a", { class: "card", href: `#study/${s.id}` },
       el("h2", {}, s.paper.title || s.id),
       el("p", { class: "muted" }, s.reference.citation),
+      checkerLine(s),
       el("p", {}, ["verified", "unverified", "failed", "no run"].map((k) =>
         el("span", { class: "count" }, badge(k), " ", s.counts[k] || 0)))));
   }
@@ -102,6 +110,7 @@ function studyNav(study) {
       el("a", { href: `https://doi.org/${study.reference.doi}`, target: "_blank", rel: "noopener noreferrer" }, "DOI"),
       safeUrl(study.paper.brief_url) && [" · ",
         el("a", { href: study.paper.brief_url, target: "_blank", rel: "noopener noreferrer" }, "Read the brief on Paperraft")]),
+    checkerLine(study),
     study.paper.experiment && el("p", { class: "experiment" }, study.paper.experiment),
   ];
 }

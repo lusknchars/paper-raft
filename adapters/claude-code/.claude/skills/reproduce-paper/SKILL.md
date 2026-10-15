@@ -13,3 +13,5 @@ description: Run the Paper Raft loop for one study (extract, implement in parall
 Never lower a study's tolerance to make a method pass. A failed reproduction is a result: commit it.
 
 To score your own agent setup on a study instead of adding to it, use `uv run raft bench` (see the README).
+
+For a paper that has no study yet, `uv run raft prepare --arxiv <id> --agent claude-code` builds and attacks its checker. Never run `raft approve`; the owner does.

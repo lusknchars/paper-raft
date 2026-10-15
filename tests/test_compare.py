@@ -94,3 +94,9 @@ def test_site_data_lists_bench_entries(tiny_git_study, tmp_path):
     (row,) = data["bench"]["tiny"]["full"]
     assert row["label"] == "site test" and row["passed"] == 2 and row["expected"] == 2
     assert row["url"].startswith("https://github.com/o/r/tree/")
+
+
+def test_site_data_has_the_checker_state(tiny_git_study):
+    from raft import compare
+    (study,) = compare.build(tiny_git_study.parents[1], None)["studies"]
+    assert study["checker"]["state"] == "approved-before-attacks"
