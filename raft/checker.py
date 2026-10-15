@@ -7,12 +7,14 @@ import inspect
 import json
 import re
 import shutil
+import sys
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 
-from . import bench, flow, graders, guard, runner, schema
+from . import bench, flow, graders, guard, provenance, runner, schema
 
 MUTATIONS = ("nan", "inf", "wrong_shape", "zeros", "scaled", "shuffled")
 NAME = re.compile(r"[a-z0-9][a-z0-9-]*")
@@ -182,3 +184,117 @@ def _review_checks(sd: Path) -> list[str]:
     return [f"review.json names attack {a['name']!r} but checker/attacks/{a['name']}.py does not exist"
             for r in review["rounds"] for a in r["attacks"]
             if not (sd / "checker" / "attacks" / f"{a['name']}.py").is_file()]
+
+
+APPROVAL = "checker-approval.json"
+
+
+def fingerprints(sd: Path) -> dict:
+    return {"problem": provenance.tracked_hash(Path(sd) / "problem"),
+            "checker": provenance.tracked_hash(Path(sd) / "checker", exclude=("transcripts",))}
+
+
+def record_approval(root: Path, study: str, *, approved_by: dict, builder=None, attacker=None, rounds=None,
+                    attacks=None) -> Path:
+    sd = _study(root, study)
+    fp = fingerprints(sd)
+    rec = {"schema": 1, "study": study, "problem_hash": fp["problem"], "checker_hash": fp["checker"],
+           "approved_by": approved_by, "approved_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+           "builder_agent": builder, "attacker_agent": attacker, "rounds": rounds, "attacks": attacks}
+    schema.check("checker-approval", rec)
+    path = sd / APPROVAL
+    path.write_text(json.dumps(rec, indent=2, ensure_ascii=False) + "\n")
+    return path
+
+
+def approval_state(root: Path, study: str) -> dict:
+    sd = _study(root, study)
+    path = sd / APPROVAL
+    if not path.is_file():
+        return {"state": "missing", "rounds": None, "approved_at": None}
+    rec = schema.load("checker-approval", path)
+    fp = fingerprints(sd)
+    if (rec["problem_hash"], rec["checker_hash"]) != (fp["problem"], fp["checker"]):
+        state = "stale"
+    else:
+        state = "approved-before-attacks" if rec["attacks"] is None else "approved"
+    return {"state": state, "rounds": rec["rounds"], "approved_at": rec["approved_at"]}
+
+
+def gate(root: Path, study: str) -> None:
+    state = approval_state(root, study)["state"]
+    if state == "missing":
+        raise SystemExit(f"raft: {study} has no approved checker. Run `raft validate` and `raft attack` (or "
+                         f"`raft prepare --study {study}`), then `raft approve --study {study}` in your terminal.")
+    if state == "stale":
+        raise SystemExit(f"raft: {study}'s problem/ or checker/ changed since the checker was approved. Validate and "
+                         f"attack it again, then `raft approve --study {study}` in your terminal.")
+
+
+def _git_user(root: Path) -> dict:
+    return {"name": provenance._git(root, "config", "user.name") or "unknown",
+            "email": provenance._git(root, "config", "user.email") or "unknown"}
+
+
+def _screen(sd: Path, review: dict | None, without_attacks: bool) -> list[str]:
+    lines = [f"── Checker for {sd.name}", ""]
+    note = sd / "checker" / "NOTE.md"
+    lines += (note.read_text().rstrip().splitlines() if note.is_file() else ["(no checker/NOTE.md)"]) + [""]
+    if without_attacks:
+        lines.append("Approving WITHOUT attack rounds: this study was made before the checker gate existed.")
+    else:
+        lines.append(f"Built by {review['builder_agent']}, attacked by {review['attacker_agent']}.")
+        for r in review["rounds"]:
+            blocked = sum(a["blocked"] for a in r["attacks"])
+            lines.append(f"  round {r['round']}: {len(r['attacks'])} tried, {blocked} blocked")
+            lines += [f"    {'✓' if a['blocked'] else '✗'} {a['name']}: {a['idea']}" for a in r["attacks"]]
+        ans = sd / "checker" / "answer.py"
+        if ans.is_file():
+            skips = getattr(runner.load_module(ans, f"raft_answer_screen_{sd.name.replace('-', '_')}"),
+                            "SKIP_MUTATIONS", {}) or {}
+            lines += [f"  skipped mutation {k}: {v}" for k, v in skips.items()]
+    return lines + [""]
+
+
+def _is_tty(stream) -> bool:
+    try:
+        return bool(stream.isatty())
+    except Exception:  # pytest's captured stdin and closed streams are not terminals
+        return False
+
+
+def approve(root: Path, study: str, *, without_attacks: bool = False, stdin=None, read=input, out=print,
+            run_timeout: float = 1800.0) -> Path:
+    root = Path(root)
+    sd = _study(root, study)
+    if not _is_tty(sys.stdin if stdin is None else stdin):
+        raise SystemExit("raft: approve needs you at an interactive terminal; agents cannot approve a checker")
+    if provenance.is_dirty(root, [sd / "problem", sd / "checker"]):
+        raise SystemExit(f"raft: studies/{study}/problem or checker has uncommitted changes; commit them first")
+    review = None
+    if without_attacks:
+        if not any((sd / "runs").glob("*/manifest.json")):
+            raise SystemExit("raft: --without-attacks is only for a study with committed runs made before the gate")
+    else:
+        path = sd / "checker" / "review.json"
+        review = schema.load("checker-review", path) if path.is_file() else None
+        if not review or not review["rounds"]:
+            raise SystemExit(f"raft: no attack rounds in studies/{study}/checker/review.json; run "
+                             f"`raft prepare --study {study}` or `raft attack` first")
+        holes = validate(root, study, run_timeout, log=lambda s: None)
+        if holes:
+            for h in holes:
+                out(f"✗ {h}")
+            raise SystemExit("raft: the checker does not hold; approval refused")
+    for line in _screen(sd, review, without_attacks):
+        out(line)
+    if read(f"Type {study} to approve this checker: ").strip() != study:
+        raise SystemExit("raft: not approved")
+    attacks = None
+    if review:
+        flat = [a for r in review["rounds"] for a in r["attacks"]]
+        attacks = {"tried": len(flat), "blocked": sum(a["blocked"] for a in flat)}
+    return record_approval(root, study, approved_by=_git_user(root),
+                           builder=review["builder_agent"] if review else None,
+                           attacker=review["attacker_agent"] if review else None,
+                           rounds=len(review["rounds"]) if review else None, attacks=attacks)

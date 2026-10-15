@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Paper Raft checker approval (the owner's sign-off)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "study", "problem_hash", "checker_hash", "approved_by", "approved_at", "builder_agent",
+               "attacker_agent", "rounds", "attacks"],
+  "properties": {
+    "schema": {"const": 1},
+    "study": {"type": "string", "minLength": 1},
+    "problem_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "checker_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "approved_by": {"type": "object", "additionalProperties": false, "required": ["name", "email"],
+                    "properties": {"name": {"type": "string"}, "email": {"type": "string"}}},
+    "approved_at": {"type": "string"},
+    "builder_agent": {"type": ["string", "null"]},
+    "attacker_agent": {"type": ["string", "null"]},
+    "rounds": {"type": ["integer", "null"], "minimum": 1},
+    "attacks": {"type": ["object", "null"], "additionalProperties": false, "required": ["tried", "blocked"],
+                "properties": {"tried": {"type": "integer", "minimum": 0}, "blocked": {"type": "integer", "minimum": 0}}}
+  }
+}

@@ -6,7 +6,8 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-NAMES = ("extraction", "method", "manifest", "results", "review", "reference", "flow", "bench-entry", "checker-review")
+NAMES = ("extraction", "method", "manifest", "results", "review", "reference", "flow", "bench-entry", "checker-review",
+         "checker-approval")
 
 
 class ContractError(Exception):

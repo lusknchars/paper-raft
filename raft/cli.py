@@ -38,7 +38,7 @@ def _params(rest: list[str]) -> dict:
 # Options raft itself understands; every other --key [value] is a study parameter.
 KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out", "--title", "--doi", "--help", "-h",
          "--assets", "--port", "--no-open", "--agent", "--model", "--oss", "--setup", "--methods", "--label", "--cmd",
-         "--run-timeout", "--verify", "--table", "--force", "--arxiv", "--id", "--brief", "--round"}
+         "--run-timeout", "--verify", "--table", "--force", "--arxiv", "--id", "--brief", "--round", "--without-attacks"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -80,6 +80,8 @@ def _study_cmd(p, args, root: Path, study: str, params: dict) -> int:
         print(briefs.render(root, "extractor", study))
         return 0
     if args.cmd == "implement":
+        from . import checker
+        checker.gate(root, study)
         print(briefs.render(root, "implementer", study, args.method))
         return 0
     if args.cmd == "review":
@@ -99,6 +101,8 @@ def _study_cmd(p, args, root: Path, study: str, params: dict) -> int:
         return _report(runner.repro(sd, params, args.timeout), f"{study}: every matching run reproduced")
     if args.all == bool(args.method):
         p.error("give one method name or --all")
+    from . import checker
+    checker.gate(root, study)
     names = runner.methods(sd) if args.all else [args.method]
     if not names:
         if args.all_studies:
@@ -178,6 +182,11 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("build-checker", parents=[common], help="print the checker builder's brief")
     at = sub.add_parser("attack", parents=[common], help="print the checker attacker's brief")
     at.add_argument("--round", type=int, default=1)
+    ap = sub.add_parser("approve", help="the owner's sign-off on a study's checker (interactive terminal only)")
+    ap.add_argument("--study")
+    ap.add_argument("--without-attacks", action="store_true",
+                    help="only for a study with runs made before the checker gate")
+    ap.add_argument("--run-timeout", type=_duration, default=1800.0)
     keep, rest = _split(sys.argv[1:] if argv is None else argv)
     args = p.parse_args(keep)
     if rest and args.cmd not in ("run", "repro"):
@@ -256,6 +265,13 @@ def main(argv: list[str] | None = None) -> int:
         from . import checker
         study = paths.resolve_study(root, args.study)
         return _report(checker.validate(root, study, args.run_timeout), f"{study}: the checker holds")
+
+    if args.cmd == "approve":
+        from . import checker
+        study = paths.resolve_study(root, args.study)
+        path = checker.approve(root, study, without_attacks=args.without_attacks, run_timeout=args.run_timeout)
+        print(f"✓ approved: {path.relative_to(root)}. Commit it; runs and bench now work on {study}.")
+        return 0
 
     params = _params(rest)
     if args.all_studies:

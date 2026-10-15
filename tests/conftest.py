@@ -95,6 +95,8 @@ def make_tiny_study(root: Path, git_repo: bool = False) -> Path:
     (sd / "extraction.json").write_text(json.dumps({"study": "tiny", "items": [
         {"id": "tiny-method", "kind": "method", "text": "square x", "page": 1, "quote": "y = x^2", "missing": False}]}))
     add_method(sd, "exact", EXACT)
+    from raft import checker
+    checker.record_approval(root, "tiny", approved_by={"name": "test", "email": "t@example.com"})
     if git_repo:
         git(root, "init", "-q", "-b", "main")
         git(root, "config", "user.email", "t@example.com")

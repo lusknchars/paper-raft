@@ -249,6 +249,8 @@ def run_bench(root: Path, study: str, agent: str, *, model=None, oss=False, setu
     if unknown:
         raise SystemExit(f"raft: unknown method(s) {', '.join(unknown)} (have: {', '.join(lab)})")
     require_clean(root, study)
+    from . import checker
+    checker.gate(root, study)
     setup = Path(setup).resolve() if setup else None
     specs = flow.metric_specs(_paper(sd))
     with tempfile.TemporaryDirectory(prefix="raft-bench-") as tmp:

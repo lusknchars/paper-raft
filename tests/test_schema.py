@@ -68,6 +68,11 @@ VALID = {
         "study": "tiny", "builder_agent": "codex:checker-builder", "attacker_agent": "claude-code:checker-attacker",
         "rounds": [{"round": 1, "attacks": [{"name": "zeros", "idea": "return zeros", "blocked": True}]}],
     },
+    "checker-approval": {
+        "schema": 1, "study": "tiny", "problem_hash": HASH, "checker_hash": HASH,
+        "approved_by": {"name": "Owner", "email": "o@example.com"}, "approved_at": "2026-10-15T00:00:00+00:00",
+        "builder_agent": None, "attacker_agent": None, "rounds": None, "attacks": None,
+    },
 }
 
 
