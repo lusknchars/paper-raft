@@ -114,3 +114,20 @@ def test_broken_problem_fails_unless_draft(tiny_git_study):
         flow.build_flow(_root(sd), "tiny")
     (sd / "paper.yaml").write_text((sd / "paper.yaml").read_text() + "draft: true\n")
     assert flow.build_flow(_root(sd), "tiny")["runs"] == []
+
+
+def test_transduced_flow_matches_the_committed_study():
+    from raft import paths
+    root = paths.repo_root()
+    f = flow.build_flow(root, "transduced-lm-2026")
+    assert len(f["items"]) == 71 and f["paper"]["reference_checked"] is True
+    used = {i for m in f["methods"] for i in m["implements"]}
+    assert len(used) == 46
+    assert len(f["runs"]) == 10 and all(r["status"] == "verified" and r["pass"] for r in f["runs"])
+    assert [m["status"] for m in f["methods"]] == ["verified"] * 5
+    keys = {m["key"] for m in f["metrics"]}
+    assert keys == {"bias", "error_drop", "exact_error", "lower_bound"}
+    bias = [x["value"] for r in f["runs"] for x in r["metrics"] if x["key"] == "bias"]
+    assert len(bias) == 4 and max(bias) == pytest.approx(2.384, abs=1e-3)
+    drop = [x["value"] for r in f["runs"] for x in r["metrics"] if x["key"] == "error_drop"]
+    assert len(drop) == 4 and max(drop) == pytest.approx(0.275, abs=1e-3)

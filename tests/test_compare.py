@@ -55,3 +55,14 @@ def test_write_site_files(tiny_study, tmp_path):
 def test_repo_url_normalises(monkeypatch, tmp_path):
     monkeypatch.setenv("RAFT_REPO_URL", "git@github.com:lusknchars/paper-raft.git")
     assert compare.repo_url(tmp_path) == "https://github.com/lusknchars/paper-raft"
+
+
+def test_compare_includes_flows_and_writes_them(tiny_git_study, tmp_path):
+    root = tiny_git_study.parents[1]
+    runner.run_one(tiny_git_study, "exact", {"n": 8}, timeout=60)
+    data = compare.build(root, None)
+    assert data["flows"]["tiny"]["study"] == "tiny"
+    out = tmp_path / "site"
+    compare.write_site(data, out)
+    assert json.loads((out / "flows" / "tiny.json").read_text())["study"] == "tiny"
+    assert "window.RAFT_DATA" in (out / "data.js").read_text()

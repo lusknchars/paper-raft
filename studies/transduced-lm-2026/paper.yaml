@@ -21,3 +21,8 @@ experiment: >-
   prune, so it behaves exactly like beam_swor, as the paper notes for DNA). Reviewers tested those paths with
   their own scripts, outside the graded runs. Method folders: beam-summing, smc-simple, smc-rb, beam-swor,
   beam-swor-adaptive.
+metrics:
+  - {key: bias, from: max_z, label: "worst bias test", note: "limit 4σ over 128 seeds", agg: max, format: sigma, where: {case: bigram}}
+  - {key: error_drop, from: worst_rmse_ratio, label: "error as budget grows", note: "relative RMSE, M 16 → 256, weakest method", agg: max, format: drop_percent, where: {case: bigram}}
+  - {key: exact_error, from: max_abs_log_error, label: "exact-case error", note: "log Ẑ vs closed form, limit 1e-9", agg: max, format: sci}
+  - {key: lower_bound, from: max_overshoot, label: "beam summing keeps", note: "share of the true value, never above it", agg: max, format: kept_percent}
