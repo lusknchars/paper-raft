@@ -90,12 +90,12 @@ def test_watch_reports_flow_errors_and_keeps_serving(server):
 
 
 def test_watch_nul_byte_path_is_404(server):
-    import http.client
+    import socket
     srv, _ = server
-    conn = http.client.HTTPConnection(*srv.server_address)
-    try:
-        conn.putrequest("GET", "/a\x00b")
-        conn.endheaders()
-    except Exception:
-        pytest.skip("http.client refuses to send a NUL byte")
-    assert conn.getresponse().status == 404
+    port = srv.server_address[1]
+    with socket.create_connection(srv.server_address) as sock:
+        sock.sendall(b"GET /a\x00b HTTP/1.1\r\nHost: 127.0.0.1:%d\r\nConnection: close\r\n\r\n" % port)
+        data = b""
+        while chunk := sock.recv(4096):
+            data += chunk
+    assert b" 404 " in data.split(b"\r\n", 1)[0]
