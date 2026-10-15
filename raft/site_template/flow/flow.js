@@ -17,7 +17,7 @@ const SEG = 40;
 
 const FORMATS = {
   sigma: (v) => v.toFixed(1) + "σ",
-  drop_percent: (v) => "−" + Math.round(100 * (1 - v)) + "%",
+  drop_percent: (v) => (v <= 1 ? "−" + Math.round(100 * (1 - v)) + "%" : "+" + Math.round(100 * (v - 1)) + "%"),
   sci: (v) => v.toExponential(1),
   kept_percent: (v) => (100 * (1 + v)).toFixed(1) + "%",
   percent: (v) => (100 * v).toFixed(1) + "%",
@@ -41,7 +41,7 @@ export function chain(data, sel = {}) {
   const ids = new Set(data.items.map((i) => i.id));
   const used = new Set(ms.flatMap((m) => m.implements).filter((id) => ids.has(id)));
   const metrics = data.metrics.map((m) => {
-    const vals = runs.flatMap((r) => r.metrics.filter((x) => x.key === m.key).map((x) => x.value));
+    const vals = runs.filter((r) => r.status !== "stale").flatMap((r) => r.metrics.filter((x) => x.key === m.key).map((x) => x.value));
     return { ...m, text: vals.length ? formatMetric(m.format, AGG[m.agg](vals)) : "—" };
   });
   return {
@@ -155,7 +155,7 @@ export function mountFlow(root, data, opts = {}) {
 
     const py = top + (bottom - top) * 0.45;
     const paper = h("div", "rf-paper", data.paper.title);
-    paper.append(h("small", null, draft ? "draft · nothing extracted yet" : data.paper.authors_short));
+    paper.append(h("small", null, draft ? (data.paper.draft ? "draft · nothing extracted yet" : "nothing extracted yet") : data.paper.authors_short));
     put(paper, 8, py - 36).style.maxWidth = (phone ? W * 0.45 : X[0] - 12) + "px";
     cable({ x: 8, y: py }, { x: X[0], y: py }, { color: PAPER, lead: true, layer: 0 }, rnd);
     (opts.others || []).forEach((o, i) => {
@@ -379,7 +379,7 @@ export function mountFlow(root, data, opts = {}) {
       ro.disconnect(); clearTimeout(resizeTimer);
       if (timer) clearInterval(timer);
       if (raf) cancelAnimationFrame(raf);
-      if (gl) { if (gl.lines) { gl.lines.geometry.dispose(); gl.lines.material.dispose(); } gl.composer.dispose?.(); gl.renderer.dispose(); }
+      if (gl) { if (gl.lines) { gl.lines.geometry.dispose(); gl.lines.material.dispose(); } gl.composer.dispose?.(); gl.renderer.dispose(); gl.renderer.forceContextLoss(); }
       root.replaceChildren(); root.classList.remove("rf");
     },
   };

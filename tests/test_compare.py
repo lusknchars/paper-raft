@@ -66,3 +66,4 @@ def test_compare_includes_flows_and_writes_them(tiny_git_study, tmp_path):
     compare.write_site(data, out)
     assert json.loads((out / "flows" / "tiny.json").read_text())["study"] == "tiny"
     assert "window.RAFT_DATA" in (out / "data.js").read_text()
+    assert (out / "flow" / "flow.js").is_file() and not (out / "flow" / "watch.html").exists()

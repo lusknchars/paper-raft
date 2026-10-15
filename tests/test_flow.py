@@ -145,3 +145,18 @@ def test_vendored_three_is_complete_and_unchanged():
     for name, digest in listed.items():
         assert hashlib.sha256((base / name).read_bytes()).hexdigest() == digest, name
     assert "MIT License" in (base / "LICENSE").read_text()
+
+
+def test_non_finite_metric_becomes_1e300_and_flow_is_strict_json(tiny_git_study):
+    sd = tiny_git_study
+    (sd / "paper.yaml").write_text((sd / "paper.yaml").read_text() + (
+        "metrics:\n  - {key: err, from: y_max, label: max error, note: n, agg: max, format: sci}\n"))
+    runner.run_one(sd, "exact", {"n": 8}, timeout=60)
+    rp = next(sd.glob("runs/**/results.json"))
+    d = json.loads(rp.read_text())
+    d["errors"]["y_max"] = 1e999
+    rp.write_text(json.dumps(d).replace("Infinity", "1e999"))
+    f = flow.build_flow(_root(sd), "tiny")
+    vals = [x["value"] for r in f["runs"] for x in r["metrics"] if x["key"] == "err"]
+    assert vals == [1e300]
+    json.dumps(f, allow_nan=False)

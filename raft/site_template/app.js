@@ -57,7 +57,7 @@ function route() {
   if (!D) { app.append(el("p", {}, "No data.js found. Run `uv run raft compare` first.")); return; }
   const [view, id, sub] = location.hash.slice(1).split("/");
   const study = D.studies.find((s) => s.id === id);
-  if (view === "flow" && D.flows && D.flows[id]) flowView(id);
+  if (view === "flow" && D.flows && Object.hasOwn(D.flows, id)) flowView(id);
   else if (view === "study" && study) (sub === "extraction" ? extractionView : compareView)(study);
   else overview();
 }

@@ -37,7 +37,9 @@ def test_watch_binds_localhost_and_serves_flow_and_progress(server):
     assert _get(srv, "/flow/flow.js")[1].startswith("text/javascript")
 
 
-@pytest.mark.parametrize("path", ["/../../pyproject.toml", "/flow/../../cli.py", "/nope.txt"])
+@pytest.mark.parametrize("path", ["/../../pyproject.toml", "/flow/../../cli.py", "/nope.txt",
+                                  "/../contracts/flow.schema.json", "/flow/../../contracts/flow.schema.json",
+                                  "/%2e%2e/contracts/flow.schema.json"])
 def test_watch_serves_nothing_outside_the_template(server, path):
     srv, _ = server
     with pytest.raises(urllib.error.HTTPError) as e:
@@ -94,6 +96,7 @@ def test_watch_nul_byte_path_is_404(server):
     srv, _ = server
     port = srv.server_address[1]
     with socket.create_connection(srv.server_address) as sock:
+        sock.settimeout(5)
         sock.sendall(b"GET /a\x00b HTTP/1.1\r\nHost: 127.0.0.1:%d\r\nConnection: close\r\n\r\n" % port)
         data = b""
         while chunk := sock.recv(4096):

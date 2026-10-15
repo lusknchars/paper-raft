@@ -4,6 +4,7 @@ The flow view (raft/site_template/flow/flow.js) draws this shape. The Paper Raft
 Paperraft's demo all read it; raft/contracts/flow.schema.json checks it.
 """
 import json
+import math
 import re
 import shutil
 from datetime import datetime, timezone
@@ -89,8 +90,12 @@ def _run(sd: Path, root: Path, name: str, params: dict, review, sha_now, specs) 
     run["pass"] = bool(results["pass"]) and not stale
     run["started_at"] = manifest["started_at"]
     errors = results.get("errors") or {}
-    run["metrics"] = [{"key": s["key"], "value": float(errors[s["from"]])} for s in specs
-                      if s["from"] in errors and all(params.get(k) == v for k, v in s.get("where", {}).items())]
+    run["metrics"] = []
+    for s in specs:
+        if s["from"] in errors and all(params.get(k) == v for k, v in s.get("where", {}).items()):
+            v = float(errors[s["from"]])
+            v = v if math.isfinite(v) else 1e300
+            run["metrics"].append({"key": s["key"], "value": v})
     return run
 
 

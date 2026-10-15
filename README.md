@@ -28,7 +28,7 @@ While you run a study, keep the same view open on your machine:
 
 It serves on 127.0.0.1 only and shows each run's progress as it happens; a method can report progress inside a
 run by taking `solve(setup, progress)` and calling `progress(fraction)`. `raft flow-export --study <s> --out <file>`
-writes a committed study's flow for other sites (Paperraft shows it on the paper's page).
+writes a committed study's flow for other sites, such as Paperraft.
 
 ## How it works
 
