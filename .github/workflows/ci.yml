@@ -21,6 +21,12 @@ jobs:
       - run: uv run raft compare
         env:
           RAFT_REPO_URL: https://github.com/${{ github.repository }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/check_flow.mjs site
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
         with:

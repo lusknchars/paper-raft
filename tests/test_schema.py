@@ -38,6 +38,18 @@ VALID = {
     },
     "reference": {"citation": "Ghia et al. 1982", "doi": "10.1016/0021-9991(82)90058-4", "tolerance": 0.01,
                   "cases": {"100": {"u_vertical": [[0, 0], [1, 1]], "v_horizontal": [[0, 0], [1, 0]]}}},
+    "flow": {
+        "schema": 1, "study": "ghia-1982",
+        "source": {"repo": None, "commit": SHA, "built_at": "2026-10-14T09:00:00+00:00"},
+        "paper": {"title": "Ghia", "authors_short": "Ghia 1982", "reference_checked": False, "draft": False},
+        "items": [{"id": "vorticity-transport", "kind": "equation"}],
+        "methods": [{"name": "projection", "implements": ["vorticity-transport"], "status": "verified", "color": 0}],
+        "cases": [{"key": "re=100,grid=129", "label": "100 · 129"}],
+        "runs": [{"run_id": "projection-grid129-re100", "method": "projection", "params": {"re": 100, "grid": 129},
+                  "case": "re=100,grid=129", "status": "verified", "pass": True,
+                  "started_at": "2026-10-12T18:00:00+00:00", "metrics": [{"key": "u_max", "value": 0.001}]}],
+        "metrics": [{"key": "u_max", "label": "max error", "note": "vs Ghia", "agg": "max", "format": "sci"}],
+    },
 }
 
 

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paper Raft · watch</title>
+  <link rel="stylesheet" href="/flow/flow.css">
+  <script type="importmap">
+  { "imports": { "three": "/vendor/three-0.186.1/build/three.module.js",
+                 "three/addons/": "/vendor/three-0.186.1/examples/jsm/" } }
+  </script>
+  <style>
+    html, body { margin: 0; height: 100%; background: #030305; }
+    #flow { height: 100vh; border-radius: 0; }
+  </style>
+</head>
+<body>
+  <div id="flow"></div>
+  <script type="module">
+    import { mountFlow } from "/flow/flow.js";
+    const host = document.getElementById("flow");
+    let data;
+    while (!data) {
+      let msg;
+      try {
+        const r = await fetch("/flow.json", { cache: "no-store" });
+        if (r.ok) data = await r.json();
+        else msg = (await r.json().catch(() => ({}))).error || `HTTP ${r.status}`;
+      } catch (e) { msg = String(e); }
+      if (!data) {
+        let p = host.querySelector("p");
+        if (!p) { p = document.createElement("p"); p.style.cssText = "color:#e8e8ee;font:14px monospace;padding:1rem"; host.appendChild(p); }
+        p.textContent = "Can't load the flow yet (retrying): " + msg;
+        await new Promise((res) => setTimeout(res, 2000));
+      }
+    }
+    host.textContent = "";
+    mountFlow(host, data, {
+      live: { url: "/progress.json", interval: 1000 },
+      note: "local · not committed: live progress comes from the runs on this machine",
+    });
+  </script>
+</body>
+</html>

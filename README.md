@@ -16,6 +16,20 @@ uv run raft compare              # builds site/; open site/index.html
 
 No API key is needed to rerun and check results.
 
+## Flow view
+
+Every study is also drawn as a chain: the paper, the items extracted from it, the methods built from those items,
+and the runs, with a percentage at each link and the results in plain terms (bias in σ, how much the error falls as
+the budget grows, the exact-case error). Open it from any study's **flow** link on the site.
+
+While you run a study, keep the same view open on your machine:
+
+    uv run raft watch --study transduced-lm-2026
+
+It serves on 127.0.0.1 only and shows each run's progress as it happens; a method can report progress inside a
+run by taking `solve(setup, progress)` and calling `progress(fraction)`. `raft flow-export --study <s> --out <file>`
+writes a committed study's flow for other sites, such as Paperraft.
+
 ## How it works
 
 | Stage | Who | Writes | Gate |

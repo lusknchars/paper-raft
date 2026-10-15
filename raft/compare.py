@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from . import paths, runner, schema
+from . import flow, paths, runner, schema
 from .status import derive_status
 
 SITE_FILES = ("index.html", "app.js", "style.css")
@@ -68,6 +68,7 @@ def build(root: Path, repo: str | None) -> dict:
             "headline": headline, "methods": methods,
             "counts": dict(Counter(m["headline_status"] for m in methods)),
         })
+    data["flows"] = {s: flow.build_flow(root, s, repo) for s in paths.studies(root, include_drafts=True)}
     return data
 
 
@@ -78,5 +79,13 @@ def write_site(data: dict, out_dir: Path) -> None:
     for name in SITE_FILES:
         with template.joinpath(name).open("rb") as src, open(out_dir / name, "wb") as dst:
             shutil.copyfileobj(src, dst)
+    tpl = flow.template_dir()
+    for tree in ("flow", "vendor"):
+        if (tpl / tree).is_dir():
+            shutil.copytree(tpl / tree, out_dir / tree, dirs_exist_ok=True,
+                            ignore=shutil.ignore_patterns("watch.html"))
+    (out_dir / "flows").mkdir(exist_ok=True)
+    for sid, f in data.get("flows", {}).items():
+        (out_dir / "flows" / f"{sid}.json").write_text(json.dumps(f, indent=1, ensure_ascii=False) + "\n")
     (out_dir / "data.json").write_text(json.dumps(data, indent=1) + "\n")
     (out_dir / "data.js").write_text("window.RAFT_DATA = " + json.dumps(data) + ";\n")

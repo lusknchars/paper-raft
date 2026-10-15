@@ -1,4 +1,4 @@
-"""raft: new | extract | implement | run | review | repro | compare."""
+"""raft: new | extract | implement | run | review | repro | compare | watch | flow-export."""
 import argparse
 import sys
 from pathlib import Path
@@ -34,7 +34,8 @@ def _params(rest: list[str]) -> dict:
 
 
 # Options raft itself understands; every other --key [value] is a study parameter.
-KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out", "--title", "--doi", "--help", "-h"}
+KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out", "--title", "--doi", "--help", "-h",
+         "--assets", "--port", "--no-open"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -126,6 +127,14 @@ def main(argv: list[str] | None = None) -> int:
     rp.add_argument("--timeout", type=float, default=1800.0)
     c = sub.add_parser("compare", help="score every run and build the static site")
     c.add_argument("--out", default="site")
+    w = sub.add_parser("watch", help="show the flow view on localhost, live while runs are going")
+    w.add_argument("--study")
+    w.add_argument("--port", type=int, default=8765)
+    w.add_argument("--no-open", action="store_true")
+    fe = sub.add_parser("flow-export", help="write a committed study's flow.json (and the view's files) for Paperraft")
+    fe.add_argument("--study")
+    fe.add_argument("--out", required=True)
+    fe.add_argument("--assets")
     keep, rest = _split(sys.argv[1:] if argv is None else argv)
     args = p.parse_args(keep)
     if rest and args.cmd not in ("run", "repro"):
@@ -143,6 +152,17 @@ def main(argv: list[str] | None = None) -> int:
         out = Path(args.out) if Path(args.out).is_absolute() else root / args.out
         compare.write_site(compare.build(root, compare.repo_url(root)), out)
         print(f"✓ site written to {out}. Open {out / 'index.html'}")
+        return 0
+    if args.cmd == "watch":
+        from . import watch
+        watch.serve(root, paths.resolve_study(root, args.study), args.port, not args.no_open)
+        return 0
+    if args.cmd == "flow-export":
+        from . import compare, flow
+        study = paths.resolve_study(root, args.study)
+        out = Path(args.out).resolve()
+        flow.export(root, study, out, Path(args.assets).resolve() if args.assets else None, compare.repo_url(root))
+        print(f"✓ {study}: flow written to {out}" + (f", view files to {args.assets}" if args.assets else ""))
         return 0
 
     params = _params(rest)
