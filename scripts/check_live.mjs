@@ -48,6 +48,26 @@ try {
     await page.close();
     if (!process.exitCode) console.log(`✓ ${name}`);
   }
+  {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.goto(base);
+    await page.waitForSelector(".lv-head h1", { timeout: 5000 });
+    for (const [study, visible] of [["wu-2026-multimodal", true], ["transduced-lm-2026", false]]) {
+      const shown = await page.evaluate(async (study) => {
+        const { mountLive } = await import("/flow/live.js");
+        const el = document.createElement("div");
+        document.body.append(el);
+        const m = mountLive(el, { url: "/live.json", compact: true, study });
+        await new Promise((r) => setTimeout(r, 600));
+        const ok = el.getBoundingClientRect().height > 0;
+        m.destroy(); el.remove();
+        return ok;
+      }, study);
+      if (shown !== visible) fail(`compact ${study}: visible=${shown}, expected ${visible}`);
+    }
+    await page.close();
+    if (!process.exitCode) console.log("✓ compact");
+  }
 } finally {
   await browser.close();
   server.kill();

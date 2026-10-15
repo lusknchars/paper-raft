@@ -102,8 +102,8 @@ export function mountLive(root, opts = {}) {
     nodes.forEach((node, i) => {
       node.p = { x: x0 + i * dx, y };
       const color = COLOR[node.state] || COLOR.pending;
-      if (i) strokes.push({ pts: curve(nodes[i - 1].p, node.p, 0.4), color, live: node.state === "running", a: node.state === "pending" ? 0.25 : 0.8 });
-      strokes.push({ pts: ring(node.p, node.id === "paper" ? 9 : 7), color, live: node.state === "running", ring: true, a: 1 });
+      if (i) strokes.push({ pts: curve(nodes[i - 1].p, node.p, 0.4), color, live: s.state === "running" && node.state === "running", a: node.state === "pending" ? 0.25 : 0.8 });
+      strokes.push({ pts: ring(node.p, node.id === "paper" ? 9 : 7), color, live: s.state === "running" && node.state === "running", ring: true, a: 1 });
       const lab = h("div", "lv-label", node.label);
       lab.dataset.s = node.state;
       lab.style.left = `${node.p.x}px`; lab.style.top = `${y + 14}px`;
@@ -113,8 +113,8 @@ export function mountLive(root, opts = {}) {
       node.children.forEach((c, j) => {
         const p = { x: node.p.x + (j - (k - 1) / 2) * gap, y: H * 0.8 };
         const cc = COLOR[c.state] || COLOR.pending;
-        strokes.push({ pts: curve(node.p, p, 0.1), color: cc, live: c.state === "running", a: 0.35 });
-        strokes.push({ pts: ring(p, 3.5), color: cc, live: c.state === "running", ring: true, a: 1 });
+        strokes.push({ pts: curve(node.p, p, 0.1), color: cc, live: s.state === "running" && c.state === "running", a: 0.35 });
+        strokes.push({ pts: ring(p, 3.5), color: cc, live: s.state === "running" && c.state === "running", ring: true, a: 1 });
       });
     });
     for (const st of strokes) st.rgb = new THREE.Color(st.color);
@@ -223,7 +223,7 @@ export function mountLive(root, opts = {}) {
     for (const [role, a] of Object.entries(s.agents)) chips.append(h("span", "lv-chip", `${role}: ${a.tool}${a.model ? " · " + a.model : ""}`));
     head.append(h1, chips);
 
-    const key = JSON.stringify([s.id, s.steps.map((st) => [st.id, st.state]), s.results.rounds, stage.clientWidth, stage.clientHeight]);
+    const key = JSON.stringify([s.id, s.state, s.steps.map((st) => [st.id, st.state]), s.results.rounds, stage.clientWidth, stage.clientHeight]);
     if (key !== shape) { shape = key; layout(s); }
     kick();
 
@@ -234,7 +234,7 @@ export function mountLive(root, opts = {}) {
 
     const run = [...s.steps].reverse().find((st) => st.state === "running");
     const last = run || [...s.steps].reverse().find((st) => st.activity.length || st.stderr_tail);
-    if (run) {
+    if (run && s.state === "running") {
       const el = (Date.now() - Date.parse(run.started_at)) / 1000;
       timer.textContent = `${run.label} · ${fmt(el)}` + (run.timeout_s ? ` of ${fmt(run.timeout_s)}` : "");
     } else timer.textContent = "";
