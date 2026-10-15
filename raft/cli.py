@@ -38,7 +38,7 @@ def _params(rest: list[str]) -> dict:
 # Options raft itself understands; every other --key [value] is a study parameter.
 KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out", "--title", "--doi", "--help", "-h",
          "--assets", "--port", "--no-open", "--agent", "--model", "--oss", "--setup", "--methods", "--label", "--cmd",
-         "--run-timeout", "--verify", "--table", "--force"}
+         "--run-timeout", "--verify", "--table", "--force", "--arxiv", "--id", "--brief"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -119,9 +119,12 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="raft", description="Reproduce research papers with agents, in a controlled environment.")
     sub = p.add_subparsers(dest="cmd", required=True)
     n = sub.add_parser("new", help="start a new study folder (a draft until problem/ is filled in)")
-    n.add_argument("study_id")
-    n.add_argument("--title", required=True)
-    n.add_argument("--doi", required=True)
+    n.add_argument("study_id", nargs="?")
+    n.add_argument("--title")
+    n.add_argument("--doi")
+    n.add_argument("--arxiv", help="fetch the record and PDF from arXiv, e.g. 2608.27428")
+    n.add_argument("--id", dest="new_id", help="with --arxiv: the study id (default: surname-year-word)")
+    n.add_argument("--brief", help="with --arxiv: the paper's Paperraft brief URL")
     e = sub.add_parser("extract", parents=[common], help="print the extractor brief, or --validate extraction.json")
     e.add_argument("--validate", action="store_true")
     im = sub.add_parser("implement", parents=[common], help="print the implementer brief for one method")
@@ -170,6 +173,15 @@ def main(argv: list[str] | None = None) -> int:
     root = paths.repo_root()
 
     if args.cmd == "new":
+        if args.arxiv:
+            from . import arxiv
+            d = arxiv.intake(root, args.arxiv, study_id=args.new_id or args.study_id, brief=args.brief,
+                             fetcher=arxiv.Fetcher())
+            print(f"✓ created {d.relative_to(root)} from arXiv:{args.arxiv} (PDF in papers/, not committed). "
+                  f"Next: `uv run raft prepare --study {d.name} --agent <claude-code|codex>`")
+            return 0
+        if not (args.study_id and args.title and args.doi):
+            p.error("new needs a study id, --title and --doi (or --arxiv <id>)")
         d = scaffold.new_study(root, args.study_id, args.title, args.doi)
         print(f"✓ created {d.relative_to(root)} as a draft. Next: fill in problem/setup.py, problem/measure.py and "
               f"problem/reference.json, put the PDF at papers/{args.study_id}.pdf, delete `draft: true` from "
