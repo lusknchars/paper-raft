@@ -7,10 +7,11 @@ import json
 import os
 import threading
 import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import schema
+from . import agents, schema
 
 LIVE_DIR = Path(".raft") / "live"
 KEEP = 20
@@ -152,3 +153,100 @@ def sessions(root, study=None) -> list[dict]:
         out.append(s)
     out.sort(key=lambda s: (s["started_at"], s["id"]), reverse=True)
     return out[:KEEP]
+
+
+def _tool_line(name, args) -> str:
+    args = args if isinstance(args, dict) else {}
+    for k in ("command", "file_path", "path", "pattern", "url"):
+        if isinstance(args.get(k), str):
+            return f"{name} {args[k]}"
+    return str(name)
+
+
+def activity_lines(agent: str, text: str) -> list[str]:
+    """The agent's own words and actions, newest last, from its JSON event stream (unknown formats give none)."""
+    out, started = [], set()
+    for e in agents._events(text):
+        if agent == "claude-code" and e.get("type") == "assistant":
+            for c in (e.get("message") or {}).get("content") or []:
+                if not isinstance(c, dict):
+                    continue
+                if c.get("type") == "text" and str(c.get("text", "")).strip():
+                    out.append(c["text"])
+                elif c.get("type") == "tool_use":
+                    out.append(_tool_line(c.get("name"), c.get("input")))
+        elif agent == "codex" and e.get("type") in ("item.started", "item.completed"):
+            item = e.get("item") or {}
+            if item.get("type") == "agent_message" and e["type"] == "item.completed" and str(item.get("text", "")).strip():
+                out.append(item["text"])
+            elif item.get("type") == "command_execution" and isinstance(item.get("command"), str):
+                if e["type"] == "item.started":
+                    started.add(item.get("id"))
+                elif item.get("id") in started:
+                    continue
+                out.append("$ " + item["command"])
+    return [clip(x) for x in out][-ACTIVITY_KEEP:]
+
+
+def stderr_tail(text: str):
+    lines = [clip(x) for x in text.splitlines() if x.strip()][-3:]
+    return "\n".join(lines) or None
+
+
+def read_tail(path: Path, limit: int = 262_144) -> str:
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - limit))
+            return f.read().decode("utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def _loop(every: float, tick):
+    stop = threading.Event()
+
+    def run():
+        while not stop.wait(every):
+            try:
+                tick()
+            except Exception:  # noqa: BLE001 (a bad read must never kill the run)
+                pass
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    return stop, t
+
+
+@contextmanager
+def watching(session: Session, step_id: str, agent: str, transcript: Path, every: float = 1.0):
+    """While the agent runs, copy its newest events and stderr lines into the step."""
+    transcript = Path(transcript)
+
+    def tick():
+        session.set_activity(step_id, activity_lines(agent, read_tail(transcript)),
+                             stderr_tail(read_tail(transcript.with_suffix(".stderr.txt"), 8192)))
+    stop, t = _loop(every, tick)
+    try:
+        yield
+    finally:
+        stop.set()
+        t.join()
+        tick()
+
+
+@contextmanager
+def watching_progress(session: Session, path: Path, every: float = 0.5):
+    """While a graded run goes, count the solver's own progress(fraction) reports as part of a unit."""
+    def tick():
+        try:
+            f = json.loads(Path(path).read_text()).get("fraction")
+        except (OSError, json.JSONDecodeError, AttributeError):
+            return
+        if isinstance(f, (int, float)) and not isinstance(f, bool):
+            session.set_partial(f)
+    stop, t = _loop(every, tick)
+    try:
+        yield
+    finally:
+        stop.set()
+        t.join()
