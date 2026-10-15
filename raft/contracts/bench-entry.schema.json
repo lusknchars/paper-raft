@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Paper Raft bench entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "study", "created_at", "raft_commit", "problem_hash", "entrant", "machine",
+               "methods", "score", "metrics"],
+  "properties": {
+    "schema": {"const": 1},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9.-]*$"},
+    "study": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string"},
+    "raft_commit": {"type": "string"},
+    "problem_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "entrant": {
+      "type": "object", "additionalProperties": false,
+      "required": ["agent", "tool_version", "model", "oss", "label", "command", "isolation", "setup"],
+      "properties": {
+        "agent": {"enum": ["claude-code", "codex", "command"]},
+        "tool_version": {"type": ["string", "null"]},
+        "model": {"type": ["string", "null"]},
+        "oss": {"type": "boolean"},
+        "label": {"type": ["string", "null"], "maxLength": 120},
+        "command": {"type": ["string", "null"]},
+        "isolation": {"type": "string"},
+        "setup": {
+          "type": ["object", "null"], "additionalProperties": false, "required": ["hash", "files"],
+          "properties": {
+            "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "files": {"type": "array", "items": {"type": "string"}, "maxItems": 200}
+          }
+        }
+      }
+    },
+    "machine": {"type": "object", "required": ["os", "python"],
+                "properties": {"os": {"type": "string"}, "python": {"type": "string"}}},
+    "methods": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "agent_exit", "timed_out", "wall_s", "usage", "guard", "copied_from_lab", "runs"],
+        "properties": {
+          "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "agent_exit": {"type": ["integer", "null"]},
+          "timed_out": {"type": "boolean"},
+          "wall_s": {"type": "number", "minimum": 0},
+          "usage": {
+            "type": "object", "additionalProperties": false,
+            "required": ["input_tokens", "cached_input_tokens", "output_tokens", "cost_usd", "turns"],
+            "properties": {
+              "input_tokens": {"type": ["integer", "null"], "minimum": 0},
+              "cached_input_tokens": {"type": ["integer", "null"], "minimum": 0},
+              "output_tokens": {"type": ["integer", "null"], "minimum": 0},
+              "cost_usd": {"type": ["number", "null"], "minimum": 0},
+              "turns": {"type": ["integer", "null"], "minimum": 0}
+            }
+          },
+          "guard": {"type": "array", "items": {"type": "string"}},
+          "copied_from_lab": {"type": "boolean"},
+          "runs": {
+            "type": "array",
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["run_id", "params", "status", "pass", "reason", "errors"],
+              "properties": {
+                "run_id": {"type": "string"},
+                "params": {"type": "object"},
+                "status": {"enum": ["ok", "failed"]},
+                "pass": {"type": "boolean"},
+                "reason": {"type": ["string", "null"]},
+                "errors": {"type": ["object", "null"], "additionalProperties": {"type": "number"}}
+              }
+            }
+          }
+        }
+      }
+    },
+    "score": {
+      "type": "object", "additionalProperties": false, "required": ["passed", "expected"],
+      "properties": {"passed": {"type": "integer", "minimum": 0}, "expected": {"type": "integer", "minimum": 0}}
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["key", "label", "note", "format", "value"],
+        "properties": {"key": {"type": "string"}, "label": {"type": "string"}, "note": {"type": "string"},
+                       "format": {"type": "string"}, "value": {"type": ["number", "null"]}}
+      }
+    }
+  }
+}

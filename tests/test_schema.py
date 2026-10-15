@@ -50,6 +50,20 @@ VALID = {
                   "started_at": "2026-10-12T18:00:00+00:00", "metrics": [{"key": "u_max", "value": 0.001}]}],
         "metrics": [{"key": "u_max", "label": "max error", "note": "vs Ghia", "agg": "max", "format": "sci"}],
     },
+    "bench-entry": {
+        "schema": 1, "id": "2026-10-15-codex-default-aaaaaa", "study": "tiny", "created_at": "2026-10-15T00:00:00+00:00",
+        "raft_commit": SHA, "problem_hash": HASH,
+        "entrant": {"agent": "codex", "tool_version": None, "model": None, "oss": False, "label": None,
+                    "command": None, "isolation": "sandbox", "setup": None},
+        "machine": {"os": "test", "python": "3.12"},
+        "methods": [{"name": "exact", "agent_exit": 0, "timed_out": False, "wall_s": 1.0,
+                     "usage": {"input_tokens": None, "cached_input_tokens": None, "output_tokens": None,
+                               "cost_usd": None, "turns": None},
+                     "guard": [], "copied_from_lab": False,
+                     "runs": [{"run_id": "exact-n4", "params": {"n": 4}, "status": "ok", "pass": True,
+                               "reason": None, "errors": {"y_max": 0.0}}]}],
+        "score": {"passed": 1, "expected": 1}, "metrics": [],
+    },
 }
 
 
