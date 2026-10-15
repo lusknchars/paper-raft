@@ -131,3 +131,17 @@ def test_transduced_flow_matches_the_committed_study():
     assert len(bias) == 4 and max(bias) == pytest.approx(2.384, abs=1e-3)
     drop = [x["value"] for r in f["runs"] for x in r["metrics"] if x["key"] == "error_drop"]
     assert len(drop) == 4 and max(drop) == pytest.approx(0.275, abs=1e-3)
+
+
+def test_vendored_three_is_complete_and_unchanged():
+    import hashlib
+    base = flow.template_dir() / "vendor" / flow.THREE
+    sums = (base / "SHA256SUMS").read_text().split("\n")
+    listed = {}
+    for line in filter(None, sums):
+        digest, name = line.split("  ", 1)
+        listed[name] = digest
+    assert len(listed) == 13
+    for name, digest in listed.items():
+        assert hashlib.sha256((base / name).read_bytes()).hexdigest() == digest, name
+    assert "MIT License" in (base / "LICENSE").read_text()
