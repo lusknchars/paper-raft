@@ -83,3 +83,49 @@ def test_measure_can_ask_for_the_method_name(tiny_study):
         "            'pass': method == 'exact'}\n")
     _, results = runner.run_one(tiny_study, "exact", {"n": 4}, timeout=60)
     assert results["status"] == "ok" and results["errors"] == {"named": 1.0} and results["pass"] is True
+
+
+PROGRESS_SOLVER = '''
+import numpy as np
+
+
+def solve(setup, progress):
+    progress(0.5)
+    progress(float("nan"))
+    x = np.linspace(0, 1, setup.n)
+    return {"y": x**2}
+'''
+
+
+def test_progress_file_ends_finished_and_solver_gets_progress(tiny_study):
+    from conftest import add_method
+    add_method(tiny_study, "prog", PROGRESS_SOLVER)
+    manifest, results = runner.run_one(tiny_study, "prog", {"n": 8}, timeout=60)
+    p = json.loads((tiny_study / "runs" / ".progress" / f"{manifest['run_id']}.json").read_text())
+    assert results["pass"] and p["state"] == "finished" and p["pass"] is True
+    assert p["started_at"] == manifest["started_at"]
+
+
+def test_solver_without_progress_still_gets_a_progress_file(tiny_study):
+    manifest, _ = runner.run_one(tiny_study, "exact", {"n": 8}, timeout=60)
+    assert (tiny_study / "runs" / ".progress" / f"{manifest['run_id']}.json").is_file()
+
+
+def test_progress_writer_clamps_and_ignores_bad_values(tmp_path):
+    f = tmp_path / "p.json"
+    w = runner._progress_writer(f, "2026-10-14T00:00:00+00:00")
+    w(1.7)
+    assert json.loads(f.read_text())["fraction"] == 1.0
+    w("x")
+    w(float("inf"))
+    assert json.loads(f.read_text())["fraction"] == 1.0
+
+
+def test_repro_writes_no_progress(tiny_git_study):
+    runner.run_one(tiny_git_study, "exact", {"n": 8}, timeout=60)
+    from conftest import commit_all
+    import shutil
+    shutil.rmtree(tiny_git_study / "runs" / ".progress")
+    commit_all(tiny_git_study.parents[1], "run")
+    runner.repro(tiny_git_study, {}, timeout=60)
+    assert not (tiny_git_study / "runs" / ".progress").exists()
