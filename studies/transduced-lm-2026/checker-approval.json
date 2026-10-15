@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "study": "transduced-lm-2026",
+  "problem_hash": "5b2117a63b1a7bfe0f82c45a4cb77219c108ee63f681e3408b37aa1fb89f87bd",
+  "checker_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "approved_by": {
+    "name": "Lucas Oliveira",
+    "email": "luskoliveira@protonmail.com"
+  },
+  "approved_at": "2026-10-15T19:51:18+00:00",
+  "builder_agent": null,
+  "attacker_agent": null,
+  "rounds": null,
+  "attacks": null
+}
