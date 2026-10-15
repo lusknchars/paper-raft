@@ -22,15 +22,24 @@ elif brief.startswith("# checker-builder"):
     (sd / "checker").mkdir(exist_ok=True)
     (sd / "checker" / "answer.py").write_text(os.environ["FAKE_ANSWER"])
     (sd / "checker" / "NOTE.md").write_text("note")
+    if mode == "forge":
+        (sd / "checker-approval.json").write_text("{}")
+    if mode == "holes-delete" and (sd / "checker" / "attacks").is_dir():
+        for f in (sd / "checker" / "attacks").glob("*.py"):
+            f.unlink()
+        (sd / "checker" / "review.json").unlink()
 elif brief.startswith("# checker-attacker"):
-    rnd = int(brief.split("round ")[1].split()[0]) if "round " in brief else 1
+    if mode == "silent-attacker":
+        sys.exit(0)
+    holes = mode in ("holes", "holes-delete")
     a = sd / "checker" / "attacks"
     a.mkdir(parents=True, exist_ok=True)
-    name = "honest" if mode == "holes" else f"zeros-{rnd}"
-    (a / f"{name}.py").write_text(os.environ["FAKE_HONEST"] if mode == "holes" else os.environ["FAKE_ZEROS"])
     p = sd / "checker" / "review.json"
     rev = json.loads(p.read_text()) if p.exists() else {"study": "tiny", "builder_agent": "fake", "attacker_agent": "fake", "rounds": []}
-    rev["rounds"].append({"round": rnd, "attacks": [{"name": name, "idea": "try", "blocked": mode != "holes"}]})
+    rnd = len(rev["rounds"]) + 1
+    name = f"honest-{rnd}" if holes else f"zeros-{rnd}"
+    (a / f"{name}.py").write_text(os.environ["FAKE_HONEST"] if holes else os.environ["FAKE_ZEROS"])
+    rev["rounds"].append({"round": rnd, "attacks": [{"name": name, "idea": "try", "blocked": not holes}]})
     p.write_text(json.dumps(rev))
 '''
 

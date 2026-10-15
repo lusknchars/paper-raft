@@ -128,8 +128,10 @@ Each agent call has a timeout (default 45 min) and the same process-group kill a
 
 - One screen: `NOTE.md`, the validate result, each attack round (tried / blocked), each skipped mutation with its
   reason, and which agents built and attacked.
-- Requires an interactive terminal (`stdin` is a TTY) and the owner typing the study id. Agents run commands
-  without a TTY, so they cannot approve; this is a lock, not only a rule. There is no `--yes`.
+- Requires an interactive terminal (`stdin` is a TTY), no agent-session markers in the environment, and the owner
+  typing the study id. There is no `--yes`. This is a speed bump plus a record, not a lock: an agent with a shell
+  could fake a terminal or write the file. So the gate only accepts an approval that is committed (it shows up in
+  history), and `prepare` stops if any agent step touches it.
 - Writes `studies/<s>/checker-approval.json` (schema `checker-approval.schema.json`): the hash of `problem/` (same
   tracked-files hash as bench), the hash of `checker/`, approver (git `user.name` and `user.email`), time, builder
   and attacker agents, rounds, and `attacks: null` when approved with `--without-attacks`.

@@ -5,6 +5,7 @@ NOTE.md, answer.py (reference_answer and flags), attacks/<name>.py, review.json,
 """
 import inspect
 import json
+import os
 import re
 import shutil
 import sys
@@ -70,13 +71,14 @@ def _call(fn, setup, method):
     return fn(setup, method=method) if method is not None and "method" in inspect.signature(fn).parameters else fn(setup)
 
 
-def _passes(measure_mod, setup, fields, reference, method) -> bool:
+def _passes(measure_mod, setup, fields, reference, method) -> tuple[bool, str | None]:
+    """(passed, the error measure raised or None)."""
     try:
         out = (measure_mod.measure(setup, fields, reference, method=method) if method is not None
                else measure_mod.measure(setup, fields, reference))
-    except Exception:
-        return False
-    return bool(out.get("pass"))
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
+    return bool(out.get("pass")), None
 
 
 def run_attacks(root: Path, study: str, run_timeout: float) -> list[dict]:
@@ -140,14 +142,21 @@ def _answer_checks(sd: Path, ans_path: Path, log) -> list[str]:
     if takes_method and not names:
         return ["checker/answer.py must list METHODS: measure.py grades by method name"]
     flag = getattr(answer, "REFERENCE_ANSWER_PASSES", True)
+    passing = getattr(answer, "passing_answer", None)
     skips = getattr(answer, "SKIP_MUTATIONS", {}) or {}
     for k, reason in skips.items():
         if k not in MUTATIONS:
             holes.append(f"SKIP_MUTATIONS: unknown mutation {k!r} (have: {', '.join(MUTATIONS)})")
         elif not str(reason).strip():
             holes.append(f"SKIP_MUTATIONS[{k!r}] needs a reason")
+    expects = {m: bool(flag[m]) if isinstance(flag, dict) else bool(flag) for m in names}
+    if not all(expects.values()) and passing is None:
+        holes.append("checker/answer.py: REFERENCE_ANSWER_PASSES is False, so it must also define passing_answer(setup), "
+                     "an answer that must pass (for an estimator: the true value with honest noise); mutations are "
+                     "applied to it")
+        return holes
     for method in names:
-        expect = bool(flag[method]) if isinstance(flag, dict) else bool(flag)
+        expect = expects[method]
         for params in runner.expand(sd, {}):
             label = " ".join(x for x in (method, flow.case_label(params)) if x)
             try:
@@ -155,18 +164,30 @@ def _answer_checks(sd: Path, ans_path: Path, log) -> list[str]:
             except Exception as e:
                 holes.append(f"{label}: reference_answer failed: {type(e).__name__}: {e}")
                 continue
-            got = _passes(measure_mod, setup_mod.make_setup(params), base, reference, method)
+            got, err = _passes(measure_mod, setup_mod.make_setup(params), base, reference, method)
             if got != expect:
                 holes.append(f"{label}: the reference answer {'passes' if got else 'fails'} "
-                             f"(expected it to {'pass' if expect else 'fail'})")
+                             f"(expected it to {'pass' if expect else 'fail'})" + (f": measure raised {err}" if err else ""))
+            good = base
+            if not expect:
+                try:
+                    good = _call(passing, setup_mod.make_setup(params), method)
+                except Exception as e:
+                    holes.append(f"{label}: passing_answer failed: {type(e).__name__}: {e}")
+                    continue
+                ok, err = _passes(measure_mod, setup_mod.make_setup(params), good, reference, method)
+                if not ok:
+                    holes.append(f"{label}: passing_answer fails" + (f": measure raised {err}" if err else ""))
             for kind in MUTATIONS:
                 if kind in skips:
+                    log(f"• {label}: mutation {kind!r} skipped: {skips[kind]}")
                     continue
-                bad = mutate(base, kind)
-                if _same(bad, base):
-                    log(f"• {label}: mutation {kind!r} has no effect on this answer")
+                bad = mutate(good, kind)
+                if _same(bad, good):
+                    holes.append(f"{label}: mutation {kind!r} has no effect on the answer it is applied to; use an "
+                                 "answer it changes, or skip it in SKIP_MUTATIONS with a reason")
                     continue
-                if _passes(measure_mod, setup_mod.make_setup(params), bad, reference, method):
+                if _passes(measure_mod, setup_mod.make_setup(params), bad, reference, method)[0]:
                     holes.append(f"{label}: mutation {kind!r} passes")
     if not holes:
         log("✓ positive control and mutations")
@@ -221,7 +242,21 @@ def approval_state(root: Path, study: str) -> dict:
     return {"state": state, "rounds": rec["rounds"], "approved_at": rec["approved_at"]}
 
 
+def _in_git(root: Path) -> bool:
+    return provenance._git(Path(root), "rev-parse", "--git-dir") is not None
+
+
 def gate(root: Path, study: str) -> None:
+    sd = _study(root, study)
+    if _in_git(root):
+        if provenance.is_dirty(root, [sd / "problem", sd / "checker"]):
+            raise SystemExit(f"raft: studies/{study}/problem or checker has uncommitted or untracked files; commit or "
+                             "remove them (the approved checker is the committed one)")
+        rel = provenance._rel(root, sd / APPROVAL)
+        if (sd / APPROVAL).is_file() and (provenance._git(Path(root), "ls-files", "--error-unmatch", rel) is None
+                                          or provenance.is_dirty(root, [sd / APPROVAL])):
+            raise SystemExit(f"raft: commit studies/{study}/{APPROVAL} first; an approval only counts once it is in "
+                             "git history")
     state = approval_state(root, study)["state"]
     if state == "missing":
         raise SystemExit(f"raft: {study} has no approved checker. Run `raft validate` and `raft attack` (or "
@@ -250,9 +285,14 @@ def _screen(sd: Path, review: dict | None, without_attacks: bool) -> list[str]:
             lines += [f"    {'✓' if a['blocked'] else '✗'} {a['name']}: {a['idea']}" for a in r["attacks"]]
         ans = sd / "checker" / "answer.py"
         if ans.is_file():
-            skips = getattr(runner.load_module(ans, f"raft_answer_screen_{sd.name.replace('-', '_')}"),
-                            "SKIP_MUTATIONS", {}) or {}
-            lines += [f"  skipped mutation {k}: {v}" for k, v in skips.items()]
+            a = runner.load_module(ans, f"raft_answer_screen_{sd.name.replace('-', '_')}")
+            lines.append(f"REFERENCE_ANSWER_PASSES: {getattr(a, 'REFERENCE_ANSWER_PASSES', True)}")
+            lines.append(f"METHODS: {getattr(a, 'METHODS', None) or '(measure does not grade by method)'}")
+            lines.append(f"passing_answer: {'defined' if hasattr(a, 'passing_answer') else 'not defined'}")
+            lines += [f"  skipped mutation {k}: {v}" for k, v in (getattr(a, "SKIP_MUTATIONS", {}) or {}).items()]
+    files = sorted(p.relative_to(sd / "problem").as_posix() for p in (sd / "problem").rglob("*")
+                   if p.is_file() and "__pycache__" not in p.parts)
+    lines.append(f"problem/ files: {', '.join(files)}  (read them: this is the grader)")
     return lines + [""]
 
 
@@ -263,10 +303,18 @@ def _is_tty(stream) -> bool:
         return False
 
 
+AGENT_ENV = ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT", "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED")
+
+
 def approve(root: Path, study: str, *, without_attacks: bool = False, stdin=None, read=input, out=print,
             run_timeout: float = 1800.0) -> Path:
+    """A speed bump plus a record, not a lock: an agent with a shell could fake a terminal or write the file. The
+    record must be committed (the gate checks), so a forged approval shows up in history."""
     root = Path(root)
     sd = _study(root, study)
+    if any(os.environ.get(k) for k in AGENT_ENV):
+        raise SystemExit("raft: approve refuses to run inside an agent session (Claude Code or Codex); run it in "
+                         "your own terminal")
     if not _is_tty(sys.stdin if stdin is None else stdin):
         raise SystemExit("raft: approve needs you at an interactive terminal; agents cannot approve a checker")
     if provenance.is_dirty(root, [sd / "problem", sd / "checker"]):
@@ -281,12 +329,13 @@ def approve(root: Path, study: str, *, without_attacks: bool = False, stdin=None
         if not review or not review["rounds"]:
             raise SystemExit(f"raft: no attack rounds in studies/{study}/checker/review.json; run "
                              f"`raft prepare --study {study}` or `raft attack` first")
-        holes = validate(root, study, run_timeout, log=lambda s: None)
+        checks = []
+        holes = validate(root, study, run_timeout, log=checks.append)
         if holes:
             for h in holes:
                 out(f"✗ {h}")
             raise SystemExit("raft: the checker does not hold; approval refused")
-    for line in _screen(sd, review, without_attacks):
+    for line in _screen(sd, review, without_attacks) + ([] if without_attacks else ["Checks:", *checks, ""]):
         out(line)
     if read(f"Type {study} to approve this checker: ").strip() != study:
         raise SystemExit("raft: not approved")

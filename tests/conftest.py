@@ -113,3 +113,11 @@ def tiny_study(tmp_path):
 @pytest.fixture
 def tiny_git_study(tmp_path):
     return make_tiny_study(tmp_path, git_repo=True)
+
+
+@pytest.fixture(autouse=True)
+def _not_inside_an_agent(monkeypatch):
+    """Tests may run inside Claude Code or Codex; `raft approve` refuses there, so clear their markers."""
+    from raft import checker
+    for k in checker.AGENT_ENV:
+        monkeypatch.delenv(k, raising=False)

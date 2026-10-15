@@ -56,7 +56,9 @@ fail. It stops at your approval:
 
     uv run raft approve --study <study>
 
-which only works in your terminal, where you read the note and the attack rounds and type the study id. After
+which only works in your own terminal (not inside an agent session), where you read the note, the flags, the
+checks and the attack rounds and type the study id. Commit the approval it writes: the gate only accepts a committed
+one. This is a speed bump and a record, not a lock; `prepare` also stops if an agent touches the approval. After
 that, `raft bench` and `raft run` work on the new paper, and they refuse to run if the checker changes until it is
 attacked and approved again. Step by step instead: `raft new --arxiv`, `raft extract`, `raft build-checker`,
 `raft validate`, `raft attack`, `raft approve`. Graders come from a small library: `raft grader add <checks|table|claims>`.

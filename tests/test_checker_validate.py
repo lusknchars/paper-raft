@@ -60,7 +60,8 @@ def test_weak_measure_is_caught_by_named_mutations(tiny_study):
 
 
 def test_reference_answer_must_pass_or_fail_as_declared(tiny_study):
-    with_answer(tiny_study, ANSWER.replace("REFERENCE_ANSWER_PASSES = True", "REFERENCE_ANSWER_PASSES = False"))
+    with_answer(tiny_study, ANSWER.replace("REFERENCE_ANSWER_PASSES = True", "REFERENCE_ANSWER_PASSES = False\n\n\n"
+                                           "def passing_answer(setup):\n    return reference_answer(setup)"))
     holes = checker.validate(tiny_study.parents[1], "tiny", 60, log=lambda s: None)
     assert any("the reference answer passes (expected it to fail)" in h for h in holes)
 
