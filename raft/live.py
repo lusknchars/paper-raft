@@ -52,10 +52,16 @@ class Session:
             self._last = now
             self.data["updated_at"] = _now()
             self.data["units"]["done"] = round(self._done + self._partial, 3)
-            self.path.parent.mkdir(parents=True, exist_ok=True)
             tmp = self.path.with_name(f"{self.path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
-            tmp.write_text(json.dumps(self.data, ensure_ascii=False))
-            os.replace(tmp, self.path)
+            try:
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+                tmp.write_text(json.dumps(self.data, ensure_ascii=False))
+                os.replace(tmp, self.path)
+            except OSError:  # the live file is only a view: a full or read-only disk must never kill the run
+                try:
+                    tmp.unlink(missing_ok=True)
+                except OSError:
+                    pass
             if self.on_write:
                 self.on_write(json.loads(json.dumps(self.data)))
 
@@ -123,6 +129,10 @@ class Session:
             for s in self.data["steps"]:
                 if s["state"] == "running":
                     s["state"] = "failed"
+            self._partial = 0.0  # a stop never claims half-finished work
+            u = self.data["units"]
+            if self._done >= u["total"]:
+                u["total"] = self._done + 1  # and is never shown as 100%
             self.data["state"], self.data["message"] = "stopped", message
             self._write(force=True)
 
@@ -143,7 +153,7 @@ def sessions(root, study=None) -> list[dict]:
     for p in (Path(root) / LIVE_DIR).glob("*.json"):
         try:
             s = json.loads(p.read_text())
-        except (OSError, json.JSONDecodeError):
+        except (OSError, ValueError):  # unreadable, not UTF-8, or not JSON
             continue
         if not isinstance(s, dict) or schema.errors("live", s) or (study and s["study"] != study):
             continue
@@ -231,7 +241,10 @@ def watching(session: Session, step_id: str, agent: str, transcript: Path, every
     finally:
         stop.set()
         t.join()
-        tick()
+        try:
+            tick()
+        except Exception:  # noqa: BLE001 (the last look must never fail the run)
+            pass
 
 
 @contextmanager

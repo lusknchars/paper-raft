@@ -3,6 +3,8 @@ import argparse
 import json
 import re
 import sys
+import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from . import briefs, paths, runner, scaffold, validate
@@ -66,12 +68,24 @@ def _report(problems: list[str], ok: str) -> int:
     return 0
 
 
-def _live_view(root: Path, on: bool) -> None:
+LIVE_GRACE_S = 2.5  # how long --watch keeps serving after the command ends, so the page sees the final state
+
+
+@contextmanager
+def _live_view(root: Path, on: bool):
     from . import watch
-    if on:
-        watch.background(root)
-    else:
+    if not on:
         print("• watch live: uv run raft watch", flush=True)
+        yield
+        return
+    srv = watch.background(root)
+    try:
+        yield
+    finally:
+        if srv is not None:
+            time.sleep(LIVE_GRACE_S)
+            srv.shutdown()
+            srv.server_close()
 
 
 def _duration(text: str) -> float:
@@ -272,10 +286,10 @@ def main(argv: list[str] | None = None) -> int:
             p.error("bench needs --agent (or --table, or --verify)")
         study = paths.resolve_study(root, args.study)
         methods = [m.strip() for m in args.methods.split(",") if m.strip()] if args.methods else None
-        _live_view(root, args.watch)
-        dest = bench.run_bench(root, study, args.agent, model=args.model, oss=args.oss, setup=args.setup,
-                               methods=methods, label=args.label, cmd=args.agent_cmd, timeout=args.timeout,
-                               run_timeout=args.run_timeout)
+        with _live_view(root, args.watch):
+            dest = bench.run_bench(root, study, args.agent, model=args.model, oss=args.oss, setup=args.setup,
+                                   methods=methods, label=args.label, cmd=args.agent_cmd, timeout=args.timeout,
+                                   run_timeout=args.run_timeout)
         entry = json.loads((dest / "entry.json").read_text())
         print(f"✓ score {entry['score']['passed']}/{entry['score']['expected']} → {dest.relative_to(root)}\n"
               "  Read the transcript before sharing it, then commit the folder and open a pull request to join the scoreboard.")
@@ -302,11 +316,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "prepare":
         from . import prepare
-        _live_view(root, args.watch)
-        prepare.prepare(root, agent=args.agent, arxiv=args.arxiv, study=args.study, study_id=args.new_id,
-                        brief_url=args.brief, model=args.model, cmd=args.agent_cmd, attacker=args.attacker,
-                        attacker_model=args.attacker_model, attacker_cmd=args.attacker_cmd, timeout=args.timeout,
-                        run_timeout=args.run_timeout, rounds=args.rounds)
+        with _live_view(root, args.watch):
+            prepare.prepare(root, agent=args.agent, arxiv=args.arxiv, study=args.study, study_id=args.new_id,
+                            brief_url=args.brief, model=args.model, cmd=args.agent_cmd, attacker=args.attacker,
+                            attacker_model=args.attacker_model, attacker_cmd=args.attacker_cmd, timeout=args.timeout,
+                            run_timeout=args.run_timeout, rounds=args.rounds)
         return 0
 
     params = _params(rest)

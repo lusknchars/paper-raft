@@ -78,7 +78,9 @@ export function mountLive(root, opts = {}) {
   const stderr = h("pre", "lv-stderr"), results = h("div", "lv-results"), end = h("p", "lv-end");
   track.append(fill); bar.append(track, pct); stage.append(labels);
   main.append(head, stage, bar, timer, who, act, stderr, results, end);
-  root.replaceChildren(...(opts.compact ? [main] : [side, main]));
+  const gone = h("p", "lv-gone", "raft is no longer serving this page — run `uv run raft watch` to see the final state");
+  gone.hidden = true;
+  root.replaceChildren(...(opts.compact ? [main, gone] : [side, main, gone]));
 
   let gl = null;
   if (!force2d) { try { gl = makeGL(); } catch { gl = null; } }
@@ -88,7 +90,7 @@ export function mountLive(root, opts = {}) {
   stage.prepend(canvas);
   root.dataset.lvRenderer = gl ? "webgl" : "2d";
 
-  let sessions = [], picked = null, strokes = [], shape = "", sideShape = "", W = 0, H = 0, raf = 0, timerId = null, destroyed = false;
+  let sessions = [], picked = null, strokes = [], shape = "", sideShape = "", W = 0, H = 0, raf = 0, timerId = null, destroyed = false, misses = 0, away = false;
 
   function current() {
     const list = opts.study ? sessions.filter((s) => s.study === opts.study) : sessions;
@@ -178,9 +180,9 @@ export function mountLive(root, opts = {}) {
     raf = 0;
     if (destroyed || !strokes.length) return;
     paint(ms / 1000);
-    if (!reduce && strokes.some((st) => st.live)) raf = requestAnimationFrame(frame);
+    if (!reduce && !away && strokes.some((st) => st.live)) raf = requestAnimationFrame(frame);
   }
-  function kick() { if (!destroyed && !raf) raf = requestAnimationFrame(frame); }
+  function kick() { if (!destroyed && !away && !raf) raf = requestAnimationFrame(frame); }
 
   function cell(label, value) {
     const c = h("div", "lv-cell");
@@ -234,7 +236,7 @@ export function mountLive(root, opts = {}) {
 
     const run = [...s.steps].reverse().find((st) => st.state === "running");
     const last = run || [...s.steps].reverse().find((st) => st.activity.length || st.stderr_tail);
-    if (run && s.state === "running") {
+    if (run && s.state === "running" && !away) {
       const el = (Date.now() - Date.parse(run.started_at)) / 1000;
       timer.textContent = `${run.label} · ${fmt(el)}` + (run.timeout_s ? ` of ${fmt(run.timeout_s)}` : "");
     } else timer.textContent = "";
@@ -260,10 +262,20 @@ export function mountLive(root, opts = {}) {
 
   async function poll() {
     if (destroyed) return;
+    let ok = false;
     try {
       const r = await fetch(opts.url || "/live.json", { cache: "no-store" });
-      if (r.ok) { const j = await r.json(); if (Array.isArray(j)) { sessions = j; render(); } }
-    } catch { /* the server went away; keep the last state */ }
+      if (r.ok) { const j = await r.json(); if (Array.isArray(j)) { ok = true; sessions = j; } }
+    } catch { /* the server went away */ }
+    if (ok) {
+      misses = 0;
+      if (away) { away = false; gone.hidden = true; }
+      render();
+    } else if (++misses >= 2 && !away) {
+      away = true; gone.hidden = false;
+      timer.textContent = "";
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    }
   }
   poll();
   timerId = setInterval(poll, opts.interval || 1000);

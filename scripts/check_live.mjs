@@ -68,6 +68,22 @@ try {
     await page.close();
     if (!process.exitCode) console.log("✓ compact");
   }
+  {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await page.goto(base);
+    await page.waitForSelector(".lv-head h1", { timeout: 5000 });
+    await page.route("**/live.json", (r) => r.abort());
+    await page.waitForTimeout(2800);
+    const gone = page.locator(".lv-gone");
+    if (!(await gone.isVisible())) fail("disconnected: the line is not visible");
+    else if (!(await gone.textContent())?.includes("raft is no longer serving this page")) fail("disconnected: wrong text");
+    if ((await page.textContent(".lv-timer"))?.trim()) fail("disconnected: timer text is not empty");
+    await page.unroute("**/live.json");
+    await page.waitForTimeout(1500);
+    if (await gone.isVisible()) fail("disconnected: the line stays after the server is back");
+    await page.close();
+    if (!process.exitCode) console.log("✓ disconnected");
+  }
 } finally {
   await browser.close();
   server.kill();

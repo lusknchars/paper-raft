@@ -50,3 +50,4 @@
   .lv-stage { height: 260px; }
 }
 @media (prefers-reduced-motion: reduce) { .lv-track i { transition: none; } }
+.lv-gone { grid-column: 1 / -1; margin: 0; padding: 8px 12px; color: var(--lv-bad); overflow-wrap: anywhere; }
