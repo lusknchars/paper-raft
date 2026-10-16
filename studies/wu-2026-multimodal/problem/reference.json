@@ -1,0 +1,31 @@
+{
+  "citation": "Wu, Zhu, Shi (2026). Multimodal Alignment Through Joint Kernel Entropic Gromov--Wasserstein Optimal Transport. arXiv:2608.04234.",
+  "doi": "10.48550/arXiv.2608.04234",
+  "tolerance": 1e-06,
+  "verified_against_pdf": true,
+  "cases": {
+    "rate": {
+      "claim": "Both the one-sample and the two-sample mean absolute error curves follow the n^(-1/2) reference (Theorem 5, p. 12; Section 5.2 text p. 21; Figure 4 Left caption p. 22).",
+      "page": 21,
+      "n_values": {"value": [50, 100, 200, 400, 800, 1600], "page": 21},
+      "monte_carlo_reps": {"value": 100, "page": 21},
+      "kernel": {"length_scale": 0.1, "gamma_within": 1.0, "gamma_cross": 0.6, "page": 21},
+      "latent_grid": {"value": "uniform on a 7 x 7 grid in [-1, 1]^2", "page": 21},
+      "feature_grid": {"value": "20 uniform points in [0, 1], weights from Figure 3", "page": 21},
+      "eps": {"value": 0.2, "page": 22, "note": "stated only for the truncation experiment; assumed shared (extraction id synthetic-rate-epsilon-missing)"},
+      "expected_slope": {"value": -0.5, "page": 21},
+      "slope_tolerance": 0.25,
+      "figure_factor": 2.0,
+      "value_tolerance": 1e-06,
+      "marginal_tolerance": 1e-07,
+      "value_vs_plans_tolerance": 1e-07,
+      "fixed_point_tolerance": 1e-04,
+      "figure_4_left": {
+        "page": 22,
+        "read_off": "500 dpi render, y calibrated on the log gridlines (10^-2 label and the 2..7 x 10^-2 minor lines); about +-5% reading error",
+        "one_sample": {"n": [50, 100, 200, 400, 800, 1600], "mean_abs_error": [0.059, 0.0318, 0.0247, 0.0144, 0.0098, 0.0072], "page": 22},
+        "two_sample": {"n": [50, 100, 200, 400, 800, 1600], "mean_abs_error": [0.073, 0.0414, 0.0308, 0.0234, 0.0152, 0.0131], "page": 22}
+      }
+    }
+  }
+}

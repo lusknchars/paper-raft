@@ -1,0 +1,486 @@
+{
+  "study": "wu-2026-multimodal",
+  "extractor_agent": "claude-code:raft-extractor",
+  "items": [
+    {
+      "id": "jk-egw-objective",
+      "kind": "equation",
+      "text": "Population JK-EGW objective (Eq. 1). M modalities with marginals mu^i on X^i, shared latent Z subset R^{d_z} with user-chosen marginal nu. S_eps({mu^i}, nu) = inf over couplings pi^i in Gamma(mu^i, nu) of sum_{i,j=1}^M int int K(x,x') ||z - z'||^2 dpi^i(x,z) dpi^j(x',z') + eps * sum_i KL(pi^i || mu^i (x) nu). The ordered double sum covers within-modality (i=j) and cross-modality (i != j) pairs. K: X x X -> R_{>=0} is a global affinity kernel on the disjoint union X of all modality spaces; eps > 0.",
+      "page": 7,
+      "quote": "For coupled samples (x, z) and (x′ , z ′ ), we assign the pairwise latent penalty K(x, x′ )∥z − z ′ ∥2 .",
+      "missing": false
+    },
+    {
+      "id": "kl-divergence-definition",
+      "kind": "equation",
+      "text": "KL divergence used as the entropic regulariser: D_KL(alpha || beta) = int log(dalpha/dbeta) dalpha. In the discrete problem with uniform marginals mu_hat^i (x) nu_hat_n = (1/n^2) on each cell, KL(pi || mu (x) nu) = sum_{k,l} pi_kl log(n^2 pi_kl).",
+      "page": 7,
+      "quote": "Here, ϵ > 0 is the entropic regularization parameter, and DKL denotes the Kullback–Leibler (KL) divergence",
+      "missing": false
+    },
+    {
+      "id": "mercer-rank-r-truncation",
+      "kind": "equation",
+      "text": "K is assumed symmetric PSD with Mercer decomposition w.r.t. the mixture rho = (1/M) sum_i mu^i: K(x,x') = sum_r lambda_r phi'_r(x) phi'_r(x'). Scaled eigenfunctions phi_r = sqrt(lambda_r) phi'_r; Phi_R(x) = (phi_1(x),...,phi_R(x)); rank-R kernel K_R(x,x') = Phi_R(x)^T Phi_R(x'). Assumption 1: K(x,x) <= kappa^2; residual E_R = K - K_R; eta_R = sup_x sum_{r>R} phi_r(x)^2 -> 0.",
+      "page": 8,
+      "quote": "we assume that K is symmetric positive semidefinite, and thus admits a Mercer decomposition (Mercer, 1909) with respect to ρ",
+      "missing": false
+    },
+    {
+      "id": "rank-r-jk-egw-objective",
+      "kind": "equation",
+      "text": "Rank-R JK-EGW objective (Eq. 2): S_eps^R is Eq. 1 with K(x,x') replaced by Phi_R(x)^T Phi_R(x'). Proposition 3: |S_eps - S_eps^R| <~ M^2 sigma eta_R when nu is 4-sub-Weibull with parameter sigma^2.",
+      "page": 10,
+      "quote": "We can thus introduce a rank-R JK-EGW objective by replacing K by its rank-R approximation,",
+      "missing": false
+    },
+    {
+      "id": "population-variational-lifting",
+      "kind": "equation",
+      "text": "Theorem 4 (population lifting). With m_Phi = sum_j int Phi_R dmu^j in R^R and modality cost c^i_{A,m}(x,z) = 2 Phi_R(x)^T m_Phi ||z||^2 - 4 <A, Phi_R(x) z^T>_F for A in R^{R x d_z}, S_eps^R = inf_A { 2||A||_F^2 + sum_i OT^i_{A,m,eps}(mu^i, nu) }, where OT^i is the linear EOT problem inf_{pi^i} int c^i dpi^i + eps KL(pi^i || mu^i (x) nu). The infimum is attained at some A* with ||A*||_F <= M kappa (2 sigma^2)^{1/4}.",
+      "page": 11,
+      "quote": "The lifted formulation introduces an auxiliary matrix A to capture the aggregate feature-latent moment, while each inner term OTiA,mΦ ,ϵ (µi , ν) is a standard EOT problem",
+      "missing": false
+    },
+    {
+      "id": "sample-complexity-theorem",
+      "kind": "equation",
+      "text": "Theorem 5: for fixed eps, the two-sample error E|S_eps({mu^i},nu) - S_eps({mu_hat^i_n}, nu_hat_n)| and the one-sample error E|S_eps({mu^i},nu) - S_eps({mu_hat^i_n}, nu)| are both O(n^{-1/2}) (constants depend on M, R, d_z, kappa, eps, sigma, with q_{R,z} = ceil((R v d_z)/2)) plus a truncation term proportional to sigma eta_R. This is the claim the synthetic experiment checks.",
+      "page": 12,
+      "quote": "the empirical full-kernel objective converges to its population counterpart up to a kernel truncation error of order ηR and a statistical error that decays at the parametric rate n−1/2",
+      "missing": false
+    },
+    {
+      "id": "empirical-measures",
+      "kind": "equation",
+      "text": "Empirical measures: mu_hat^i_n = (1/n) sum_k delta_{x^i_k} for each modality and nu_hat_n = (1/n) sum_l delta_{z_l}, with z_1..z_n drawn i.i.d. from nu independently of the modality samples.",
+      "page": 11,
+      "quote": "and let z1 , . . . , zn ∼ ν, indepen- dently of the modality samples. We define the empirical measures as",
+      "missing": false
+    },
+    {
+      "id": "discrete-jk-egw-objective",
+      "kind": "equation",
+      "text": "Discrete JK-EGW (Eq. 4). Each pi_hat^i is an n x n nonnegative matrix with pi_hat^i 1 = (1/n) 1 and pi_hat^{i T} 1 = (1/n) 1; pi_hat^i_{kl} is the mass from x^i_k to latent point z_l. S_hat_eps = min sum_{i,j} sum_{k,k',l,l'} W^{i,j}_{k,k'} pi^i_{k,l} pi^j_{k',l'} ||z_l - z_l'||^2 + eps sum_i KL(pi^i || mu_hat^i_n (x) nu_hat_n), with W^{i,j}_{k,k'} = K(x^i_k, x^j_k').",
+      "page": 15,
+      "quote": "These empirical transport plans are parametrized by n × n (scaled) doubly stochastic matrices,",
+      "missing": false
+    },
+    {
+      "id": "block-kernel-matrix",
+      "kind": "equation",
+      "text": "Global block kernel matrix W in R^{N x N}, N = M n, whose (i,j) block is W^{i,j} with entries K(x^i_k, x^j_k'). Rows/columns are ordered modality by modality (modality 1 samples first).",
+      "page": 15,
+      "quote": "We further concatenate all W i,j matrices into W ∈ RN ×N , where N = M n.",
+      "missing": false
+    },
+    {
+      "id": "pivoted-cholesky-factorization",
+      "kind": "method",
+      "text": "Nystrom-style low-rank factor W ~= L L^T, L in R^{N x R_hat}, computed once (before Algorithm 1) by pivoted Cholesky: greedily choose pivot columns using the residual diagonal, stop when the residual trace tr(W - L L^T) falls below tolerance tau_{R_hat} > 0. The residual is PSD, so rho_{R_hat} = max_{a,b} |W_ab - (LL^T)_ab| <= tau_{R_hat}. Cost O(N R_hat) kernel evaluations, O(N R_hat^2) arithmetic, O(N R_hat) memory. References: Williams and Seeger 2000; Harbrecht et al. 2012.",
+      "page": 15,
+      "quote": "the Pivoted Cholesky factorization constructs L greedily from selected R̂ pivot columns, terminating once the residual trace tr(W − LL⊤ ) falls below a prescribed tolerance τR̂ > 0",
+      "missing": false
+    },
+    {
+      "id": "low-rank-discrete-objective",
+      "kind": "equation",
+      "text": "Computable objective S_hat_eps^{R_hat} (Eq. 5): Eq. 4 with W replaced by L L^T. Matrix form (Appendix C.1): min_Pi tr(Pi^T L L^T Pi D(Z)) + eps sum_i KL(pi^i || mu_hat^i (x) nu_hat), with D(Z) = diag(ZZ^T) 1^T + 1 diag(ZZ^T)^T - 2 Z Z^T (squared-distance matrix of latent points).",
+      "page": 16,
+      "quote": "We therefore denote by ŜϵR̂ the empirical objective obtained from Equation (4) after replacing the global block matrix W by its rank-R̂ approximation LL⊤ .",
+      "missing": false
+    },
+    {
+      "id": "stacked-plan-and-omega",
+      "kind": "equation",
+      "text": "Stacked plan Pi_hat = [pi_hat^1; ...; pi_hat^M] in R^{N x n}. Z_hat in R^{n x d_z} has rows z_l^T; Z_norm = (||z_1||^2, ..., ||z_n||^2)^T (squared norms). Omega = (1/n) Rowsum(L L^T) = (1/n) L (L^T 1_N) in R^N.",
+      "page": 16,
+      "quote": "We use Ẑ ∈ Rn×dz to denote the latent embedding matrix whose ℓ-th row is zℓ⊤ , and define Ẑnorm = (∥z1 ∥2 , . . . , ∥zn ∥2 )⊤ as the row-norm vector of Ẑ.",
+      "missing": false
+    },
+    {
+      "id": "empirical-lifting-theorem",
+      "kind": "equation",
+      "text": "Theorem 8 (empirical lifting). S_hat_eps^{R_hat} = min over A_hat in R^{R_hat x d_z} of { 2||A_hat||_F^2 + sum_i OT^i_{C^i(A_hat),eps}(mu_hat^i_n, nu_hat_n) }, with cost C(A_hat) = 2 Omega Z_norm^T - 4 L A_hat Z_hat^T in R^{N x n}; C^i is its i-th row block (rows (i-1)n+1 .. in). Each subproblem is min_{pi^i} <C^i, pi^i> + eps KL(pi^i || mu_hat^i (x) nu_hat_n). For fixed plans, the minimising auxiliary variable is A_hat = L^T Pi_hat Z_hat.",
+      "page": 16,
+      "quote": "Moreover, for fixed transport plans {π̂ i }M i=1 , the minimizing auxiliary variable satisfies Â = L⊤ Π̂Ẑ.",
+      "missing": false
+    },
+    {
+      "id": "algorithm-1-alternating-minimization",
+      "kind": "method",
+      "text": "Algorithm 1 (alternating minimisation for S_hat_eps^{R_hat}). Input L, Z_hat, A_hat^(0), eps, tolerance tau, T_max. (1) Z_norm <- squared row norms; (2) Omega <- (1/n) L (L^T 1_N); (3) J^(0) <- +inf. For t = 1..T_max: (5) C^(t) <- 2 Omega Z_norm^T - 4 L A_hat^(t-1) Z_hat^T; (6-9) for each modality i, pi^{i,(t)} <- Sinkhorn(C^{i,(t)}, eps; (1/n)1, (1/n)1); (10) stack into Pi^(t); (11) A_hat^(t) <- L^T Pi^(t) Z_hat; (12) J^(t) <- 2||A_hat^(t)||_F^2 + <2 Omega Z_norm^T - 4 L A_hat^(t) Z_hat^T, Pi^(t)> + eps sum_i KL(pi^{i,(t)} || mu_hat^i (x) nu_hat); (13) stop if t > 1 and |J^(t-1) - J^(t)| / (1 + |J^(t-1)|) < tau. Return (Pi^(t), A_hat^(t), J^(t)). Note: J^(t) uses the updated A_hat^(t) in the cost, not the A_hat^(t-1) used for the Sinkhorn step. Per-iteration Sinkhorn cost O(M n^2).",
+      "page": 17,
+      "quote": "Algorithm 1 Alternating minimization algorithm for solving ŜϵR̂",
+      "missing": false
+    },
+    {
+      "id": "sinkhorn-solver",
+      "kind": "method",
+      "text": "The per-modality EOT subproblems are solved by Sinkhorn (Cuturi 2013); the experiments use the POT library (Flamary et al. 2021), and the synthetic example uses log-domain Sinkhorn. The regulariser in the paper is eps * KL(pi || mu (x) nu); with uniform marginals this differs from POT's eps * sum pi (log pi - 1) only by a constant, so the plan is the same but objective values must include the KL form.",
+      "page": 17,
+      "quote": "Algorithm 1 implements the Sinkhorn updates (Cuturi, 2013) to solve the modality-wise EOT subproblems whose costs are determined by current auxiliary matrix Â.",
+      "missing": false
+    },
+    {
+      "id": "algorithm-1-initial-auxiliary",
+      "kind": "parameter",
+      "text": "Initial auxiliary matrix A_hat^(0) is an input of Algorithm 1; the paper never says how it is chosen in any experiment.",
+      "page": 17,
+      "quote": "",
+      "missing": true,
+      "assumption": "Use A_hat^(0) = L^T Pi_0 Z_hat with Pi_0 the independent coupling (every entry 1/n^2), which equals (1/n^2) L^T 1_N 1_n^T Z_hat. This is the closed-form update evaluated at the max-entropy plan, so the first Sinkhorn step starts from a feasible point. Since the problem is nonconvex, record the choice; if results differ, also try a few random Gaussian initialisations and keep the lowest J."
+    },
+    {
+      "id": "algorithm-1-tolerance-and-tmax",
+      "kind": "parameter",
+      "text": "Outer stopping tolerance tau and maximum iterations T_max of Algorithm 1 are not given for any experiment.",
+      "page": 17,
+      "quote": "",
+      "missing": true,
+      "assumption": "tau = 1e-9 and T_max = 500 for the synthetic example (the paper treats optimisation error as negligible and Figure 4 Right reaches ~1e-13, so a tight tolerance is needed); tau = 1e-6, T_max = 200 for the larger real-data runs."
+    },
+    {
+      "id": "sinkhorn-inner-settings",
+      "kind": "parameter",
+      "text": "Inner Sinkhorn iteration cap and stopping threshold are not stated.",
+      "page": 17,
+      "quote": "",
+      "missing": true,
+      "assumption": "Log-domain Sinkhorn (POT ot.sinkhorn with method='sinkhorn_log'), stopThr = 1e-12 and numItermax = 10000 for the synthetic example; POT defaults (stopThr=1e-9, numItermax=1000) are too loose for errors near 1e-13."
+    },
+    {
+      "id": "end-to-end-error-bound",
+      "kind": "equation",
+      "text": "Theorem 9: E|S_eps({mu^i},nu) - S_hat_eps^{R_hat}({mu_hat^i_n}, nu_hat_n)| <~ (statistical n^{-1/2} term of Theorem 5) + sigma^2 eta_R + E[rho_{R_hat}], and with rho_{R_hat} <= tau_{R_hat} a.s. the last term is tau_{R_hat}. Propositions 10-12 bound the analytic-to-computable gap by M^2 sigma (eta_R + E[rho_{R_hat}]).",
+      "page": 18,
+      "quote": "we introduce the Theorem 9 to bound the expectation between Sϵ and ŜϵR̂ .",
+      "missing": false
+    },
+    {
+      "id": "barycentric-embedding",
+      "kind": "equation",
+      "text": "Displayed latent point for sample x^i_k is its barycentric embedding y_hat^i_k = n sum_l pi_hat^i_{kl} z_l (Section 5.1). Section 5.3 uses Z_hat_train^txt = pi_hat^txt Z_hat and Z_hat_train^img = pi_hat^img Z_hat, the same up to the factor n.",
+      "page": 20,
+      "quote": "The displayed point for sample xik is its barycentric latent embedding",
+      "missing": false
+    },
+    {
+      "id": "numerals-dataset",
+      "kind": "parameter",
+      "text": "Multi-modality numerals (UCI Multiple Features, Duin 1998), digits 0-9. M = 2 modalities: 76 Fourier coefficients of character shapes (FT) and 64 Karhunen-Loeve coefficients (KL).",
+      "page": 20,
+      "quote": "The modality first consists of 76 Fourier coefficients of the character shapes",
+      "missing": false
+    },
+    {
+      "id": "numerals-kernel",
+      "kind": "boundary_condition",
+      "text": "Numerals kernel: within-modality blocks W^{i,i} use RBF kernels; cross-modality blocks W^{i,j} are label agreement, W^{i,j}_{k,k'} = 1 if x^i_k and x^j_k' have the same digit label, else 0. Latent support sampled from a 2D Gaussian reference.",
+      "page": 20,
+      "quote": "we set Wk,k′ = 1 when xik and xjk′ have the same digit label and Wk,k′ = 0 otherwise.",
+      "missing": false
+    },
+    {
+      "id": "numerals-settings-missing",
+      "kind": "parameter",
+      "text": "For the numerals example the paper does not give: n (samples used), RBF bandwidth for each view, feature standardisation, the 2D Gaussian's mean/covariance, eps, R_hat or tau_{R_hat}, or the seed.",
+      "page": 20,
+      "quote": "",
+      "missing": true,
+      "assumption": "Use all 2000 samples (200 per digit, the full UCI set) with features z-scored per view, RBF bandwidth = median pairwise distance per view, nu = N(0, I_2), eps = 0.05 * median of the initial cost, tau_{R_hat} = 1e-6 * tr(W), seed 0. This is a qualitative figure only (Figure 2), so treat it as illustration, not a graded result."
+    },
+    {
+      "id": "result-figure-2-numerals",
+      "kind": "result",
+      "text": "Figure 2: 2D barycentric latent embeddings for the FT and KL views coloured by digit class; same-digit samples from both views occupy comparable regions. Qualitative only, no numbers.",
+      "page": 20,
+      "quote": "Points show the barycentric latent embeddings induced by the learned transport plans and are colored by digit class.",
+      "missing": false
+    },
+    {
+      "id": "synthetic-feature-support",
+      "kind": "parameter",
+      "text": "Synthetic example: M = 2 modalities; each marginal mu^i is supported on the same uniform grid of 20 points in [0,1] (1D), with weights from a discrete mixture of Gaussians (shown in Figure 3, peak mass ~0.11).",
+      "page": 21,
+      "quote": "The marginal distribution of each is supported on a discrete 1D set of a uniform grid of 20 points in [0, 1].",
+      "missing": false
+    },
+    {
+      "id": "synthetic-mixture-weights-missing",
+      "kind": "parameter",
+      "text": "The mixture-of-Gaussian weights of mu^1 and mu^2 on the 20-point grid (component means, widths, mixing proportions) are only drawn in Figure 3, never given numerically.",
+      "page": 21,
+      "quote": "",
+      "missing": true,
+      "assumption": "Read approximate weights off Figure 3 if possible; otherwise use mu^1 proportional to 0.5 N(0.25, 0.08^2) + 0.5 N(0.7, 0.08^2) and mu^2 proportional to 0.4 N(0.3, 0.1^2) + 0.6 N(0.75, 0.08^2), evaluated on the grid linspace(0,1,20) and normalised. Only the slope of the error curve (about -1/2) is checked, which should not depend strongly on these weights."
+    },
+    {
+      "id": "synthetic-latent-reference",
+      "kind": "parameter",
+      "text": "Latent reference nu is uniform on a 7 x 7 grid in [-1,1]^2 (49 atoms, d_z = 2), i.e. linspace(-1,1,7) in each coordinate.",
+      "page": 21,
+      "quote": "The latent reference ν is the uniform distribution on a 7 × 7 grid in [−1, 1]2 .",
+      "missing": false
+    },
+    {
+      "id": "synthetic-kernel",
+      "kind": "boundary_condition",
+      "text": "Synthetic kernel: K(x,x') = gamma exp(-||x-x'||^2 / (2 l^2)) with l = 0.1, gamma = 1 within a modality and gamma = 0.6 across modalities. So over the 40 support atoms (20 per modality) the Gram matrix is [[G, 0.6 G], [0.6 G, G]] with G the 20x20 RBF Gram; PSD for gamma in [0,1], kappa = 1.",
+      "page": 21,
+      "quote": "with bandwidth ℓ = 0.1 as the similarity kernels, where γ = 1 for within-modality affinity and γ = 0.6 for cross-modality affinity.",
+      "missing": false
+    },
+    {
+      "id": "synthetic-population-value",
+      "kind": "method",
+      "text": "The population value S_eps({mu^i}, nu) is computed by running Algorithm 1 on the population weights: exact Mercer features come from the eigendecomposition of the finite Gram matrix (here W itself, so L can be the full eigen-factor), and the marginals are the non-uniform mixture weights and the uniform 49-point nu.",
+      "page": 21,
+      "quote": "running Algorithm 1 on the population weights returns the ground-truth value up to solver tolerances.",
+      "missing": false
+    },
+    {
+      "id": "population-weights-generalisation-missing",
+      "kind": "equation",
+      "text": "Algorithm 1 and Theorem 8 are written for uniform marginals and square n x n plans. The population run (non-uniform mu^i on 20 atoms vs nu on 49 atoms) and the one-sample run (mu_hat^i_n with n atoms vs nu with 49 atoms) need weighted, rectangular versions, which the paper does not write out.",
+      "page": 21,
+      "quote": "",
+      "missing": true,
+      "assumption": "Generalise with weights: let a^i be the weights of modality i, b the latent weights, and D_a = diag(a^1,...,a^M). Use Omega = L (L^T a), where a stacks all a^i (this reduces to (1/n) L L^T 1_N under uniform weights), C = 2 Omega Z_norm^T - 4 L A Z^T, Sinkhorn with marginals (a^i, b), A = L^T Pi Z, and KL(pi^i || a^i b^T). Equivalently, build the empirical measures on the fixed support with counts/n as weights (repeated draws merge into one atom), so the empirical and population runs share one code path."
+    },
+    {
+      "id": "synthetic-sample-sizes",
+      "kind": "parameter",
+      "text": "Parametric-rate experiment: n in {50, 100, 200, 400, 800, 1600}. For each n, sample mu_hat^1_n, mu_hat^2_n and nu_hat_n independently. Two-sample error |S_eps({mu_hat^i_n}, nu_hat_n) - S_eps({mu^i}, nu)|; one-sample error |S_eps({mu_hat^i_n}, nu) - S_eps({mu^i}, nu)|. Averaged over 100 Monte Carlo repetitions.",
+      "page": 21,
+      "quote": "For each n ∈ {50, 100, 200, 400, 800, 1600}, we sample and construct empirical measures µ̂1n , µ̂2n , and ν̂n , independently across modalities and the latent reference",
+      "missing": false
+    },
+    {
+      "id": "synthetic-monte-carlo-reps",
+      "kind": "parameter",
+      "text": "100 Monte Carlo repetitions for both the one-sample and two-sample error curves.",
+      "page": 21,
+      "quote": "We run both experiments over 100 Monte Carlo repetitions and plot the averaged error curves on Figure 4 (Left)",
+      "missing": false
+    },
+    {
+      "id": "synthetic-rate-epsilon-missing",
+      "kind": "parameter",
+      "text": "The entropic parameter eps for the parametric-rate experiment (Figure 4 Left) is not stated; eps = 0.2 is given only for the truncation experiment.",
+      "page": 21,
+      "quote": "",
+      "missing": true,
+      "assumption": "Use eps = 0.2, the only value the paper states for this synthetic setup (Section 5.2, truncation paragraph); it is the most likely shared setting."
+    },
+    {
+      "id": "synthetic-seed-missing",
+      "kind": "parameter",
+      "text": "Random seeds for the Monte Carlo draws are not given.",
+      "page": 21,
+      "quote": "",
+      "missing": true,
+      "assumption": "Seed repetition r (0..99) with numpy default_rng(r) and draw modality 1, modality 2, then latent samples from that generator in that order; the curve averages over 100 draws, so the seed choice matters little."
+    },
+    {
+      "id": "result-figure-4-left-rate",
+      "kind": "result",
+      "text": "Figure 4 Left: mean absolute error vs n (log-log) for the one-sample and two-sample regimes, both following the n^{-1/2} reference line (errors of order 1e-2). Shape only, no tabulated values. Note: the x-axis ticks read 2^6..2^10 while the stated n range is 50..1600.",
+      "page": 22,
+      "quote": "Mean absolute error of the plug-in estimator versus n (log–log), in the one-sample (ν known) and two-sample (ν estimated) regimes.",
+      "missing": false
+    },
+    {
+      "id": "truncation-kernels",
+      "kind": "boundary_condition",
+      "text": "Kernel-truncation experiment kernels, common length scale l = 0.15: RBF exp(-||x-x'||^2/(2 l^2)); exponential exp(-||x-x'||/l); rational quadratic (1 + ||x-x'||^2/(2 l^2))^{-1}; periodic exp(-2 sin^2(pi ||x-x'||)/l^2).",
+      "page": 22,
+      "quote": "We set a common length scale ℓ = 0.15 to all the kernels that approximately matches the geometry in the feature space.",
+      "missing": false
+    },
+    {
+      "id": "truncation-epsilon",
+      "kind": "parameter",
+      "text": "Entropic regularisation eps = 0.2 for the kernel-truncation experiment.",
+      "page": 22,
+      "quote": "We still use Algorithm 1 to solve for the transport plan with the entropy regularization parameter ϵ = 0.2.",
+      "missing": false
+    },
+    {
+      "id": "truncation-rank-features",
+      "kind": "method",
+      "text": "Rank-R features Phi_R come from the top R eigenpairs of the kernel Gram matrix on the finite support (40 atoms for 2 modalities x 20 grid points); S_eps uses the full eigensystem. Report |S_eps - S_eps^R| against R (Figure 4 Right shows R from 0 to ~50).",
+      "page": 22,
+      "quote": "the rank-R features ΦR are formed by by retaining the top R leading eigenpairs of the kernel Gram matrix.",
+      "missing": false
+    },
+    {
+      "id": "truncation-cross-modality-and-weighting-missing",
+      "kind": "parameter",
+      "text": "For the four truncation kernels the paper does not say whether the cross-modality scaling gamma = 0.6 is still applied, or whether the Gram matrix is eigendecomposed with or without the rho weights (Mercer w.r.t. rho vs plain Gram matrix).",
+      "page": 22,
+      "quote": "",
+      "missing": true,
+      "assumption": "Keep gamma = 1 within / 0.6 across, as in the rest of Section 5.2, and eigendecompose the plain 40x40 Gram matrix (the text says 'kernel Gram matrix'). Truncation in Algorithm 1 then means L = U_R diag(sqrt(lambda_R)). Sweep R from 1 to 50 (the Gram has rank <= 40, so the gap reaches solver precision at R <= 40)."
+    },
+    {
+      "id": "result-figure-4-right-truncation",
+      "kind": "result",
+      "text": "Figure 4 Right: |S_eps - S_eps^R| decreases with R for all four kernels (log scale from ~1e-1 down to ~1e-13); RBF and rational quadratic reach solver precision faster, exponential and periodic need larger R. Shape only, no tabulated values.",
+      "page": 22,
+      "quote": "Among the 4 kernels, the smooth RBF and rational quadratic kernels reach solver precision faster, whereas the exponential and periodic kernels require larger R.",
+      "missing": false
+    },
+    {
+      "id": "coco-dataset",
+      "kind": "parameter",
+      "text": "MS-COCO 2017 train split; each image paired with the concatenation of its five captions. Class-targeted balanced sampling, each image assigned to at most one target category, disjoint train/test. 6K subset: 20 categories, 300 train + 150 test per category (6000 train, 3000 test). 9K subset: 30 categories, 300 train + 100 test per category (9000 train, 3000 test).",
+      "page": 23,
+      "quote": "a 6K subset with 6000 training and 3000 test images drawn from 20 categories (300 training and 150 test images per category)",
+      "missing": false
+    },
+    {
+      "id": "coco-category-selection-missing",
+      "kind": "parameter",
+      "text": "Which MS-COCO categories are selected, and how 'assigned to at most one target category' is decided for multi-label images, is not given.",
+      "page": 23,
+      "quote": "",
+      "missing": true,
+      "assumption": "Take the 20 (6K) / 30 (9K) categories with the most images in train2017, and keep only images whose annotations contain exactly one of the selected categories; sample 300 + 150 (or 100) per category with a fixed seed. This is a guess, so retrieval numbers will only be roughly comparable."
+    },
+    {
+      "id": "coco-encoders",
+      "kind": "parameter",
+      "text": "Frozen encoders: MPNet (Song et al. 2020) for text, DINOv3 (Simeoni et al. 2025) for images. Features extracted once and l2-normalised before alignment and evaluation.",
+      "page": 23,
+      "quote": "We use MPNet (Song et al., 2020) as the frozen text encoder and DI- NOv3 (Siméoni et al., 2025) as the frozen image encoder.",
+      "missing": false
+    },
+    {
+      "id": "coco-encoder-variants-missing",
+      "kind": "parameter",
+      "text": "Exact checkpoints (MPNet variant, DINOv3 size/patch, pooling, which layer) are not named.",
+      "page": 23,
+      "quote": "",
+      "missing": true,
+      "assumption": "sentence-transformers/all-mpnet-base-v2 (mean pooling) for captions and facebook/dinov3-vitb16 CLS token for images; these are the common public defaults for these encoder families."
+    },
+    {
+      "id": "coco-latent-reference",
+      "kind": "parameter",
+      "text": "Latent reference nu: Gaussian mixture with 20 isotropic components whose means lie along mutually orthogonal directions at a fixed distance from the origin; latent dimension d = 32 (Table 1). Ablation d in {32, 48, 64, 128}.",
+      "page": 23,
+      "quote": "The distribution ν is instantiates as a Gaussian mixture model with 20 components. Each component follows an isotropic Gaussian, whose means are placed along mutually orthogonal directions",
+      "missing": false
+    },
+    {
+      "id": "coco-gmm-details-missing",
+      "kind": "parameter",
+      "text": "GMM mean distance from origin, component variance, mixing weights, the number of latent support points n, and whether the 9K run (30 categories) still uses 20 components are not given.",
+      "page": 23,
+      "quote": "",
+      "missing": true,
+      "assumption": "Means = r * e_c for the first 20 standard basis vectors (r = 1), component std 0.1, equal weights, 20 components for both subsets as stated; n latent points = number of training pairs used in Algorithm 1 (6000 or 9000, minus validation), as Section 4 requires n latent points for n samples."
+    },
+    {
+      "id": "coco-kernel-missing",
+      "kind": "boundary_condition",
+      "text": "Section 5.3 never says how the global kernel W is built for MS-COCO (within-modality similarity, cross-modality affinity from pairs and/or category labels, bandwidths), nor eps, R_hat or tau_{R_hat}.",
+      "page": 23,
+      "quote": "",
+      "missing": true,
+      "assumption": "Follow Section 5.1 / the introduction: within-modality blocks = RBF on l2-normalised features with bandwidth = median pairwise distance; cross-modality block = 1 for the true image-caption pair and for same-category pairs, 0 otherwise. eps = 0.01 times the mean of the initial cost; pivoted Cholesky tolerance tau_{R_hat} = 1e-4 * tr(W). Mark any MS-COCO reproduction as approximate because of this gap."
+    },
+    {
+      "id": "coco-out-of-sample-mlp",
+      "kind": "method",
+      "text": "Out-of-sample map: per modality, train an MLP that regresses raw (l2-normalised) encoder features X_train onto the l2-normalised training embeddings Z_hat_train = pi_hat Z_hat. Model selection on a small validation split held out from training, by validation R@1. MLPs are frozen and applied to l2-normalised test features.",
+      "page": 23,
+      "quote": "we train a simple MLP for each modality that regresses the raw encoder features Xtrain onto the (ℓ2 -normalized) training Ẑtrain .",
+      "missing": false
+    },
+    {
+      "id": "coco-mlp-details-missing",
+      "kind": "parameter",
+      "text": "MLP architecture, loss, optimiser, epochs, learning rate and validation split size are not given.",
+      "page": 23,
+      "quote": "",
+      "missing": true,
+      "assumption": "2-layer MLP (hidden 1024, GELU), MSE loss, Adam lr 1e-3, up to 200 epochs with early stopping on validation R@1, 10% of training pairs held out for validation."
+    },
+    {
+      "id": "coco-baselines",
+      "kind": "method",
+      "text": "Baselines: CSA (Li et al. 2025), closed-form canonical similarity analysis via CCA; CSA+STRUCTURE (CSA with the similarity-based layer selection and STRUCTURE regulariser of Groger et al. 2025); MLP+STRUCTURE (trainable MLP head with contrastive objective, layer selection and STRUCTURE regularisation). Hyperparameters are not given; use the cited papers' defaults.",
+      "page": 23,
+      "quote": "CSA (Li et al., 2025) is a closed- form canonical similarity analysis method that maps frozen unimodal features into a shared multimodal space",
+      "missing": false
+    },
+    {
+      "id": "coco-purity-silhouette",
+      "kind": "equation",
+      "text": "Alignment metrics on the pooled test image and caption embeddings with target-category labels: purity of a k-means clustering of the pooled embeddings vs categories; silhouette score with cosine distance using category labels.",
+      "page": 23,
+      "quote": "Purity measures the agreement between a k-means clustering of the pooled embeddings and the target categories",
+      "missing": false
+    },
+    {
+      "id": "coco-kmeans-k-missing",
+      "kind": "parameter",
+      "text": "The k-means k, initialisation and seed used for purity are not stated.",
+      "page": 24,
+      "quote": "",
+      "missing": true,
+      "assumption": "k = number of categories (20 or 30), scikit-learn KMeans with n_init=10, random_state=0, on the pooled 6000 test embeddings (3000 images + 3000 captions)."
+    },
+    {
+      "id": "coco-recall-at-k",
+      "kind": "equation",
+      "text": "Retrieval by cosine similarity between aligned test embeddings. R@k img->txt = (1/n_ev) sum_i 1{r_i^{img->txt} <= k}, where r_i is the rank of image i's paired caption among all test captions; txt->img defined symmetrically; reported R@k = (R@k img->txt + R@k txt->img)/2, k in {1, 5}.",
+      "page": 24,
+      "quote": "the image-to-text recall is",
+      "missing": false
+    },
+    {
+      "id": "result-table-1",
+      "kind": "result",
+      "text": "Table 1 (d = 32), Purity / Silhouette / R@1 / R@5. MS-COCO 6k: CSA 0.638 / -0.210 / 0.257 / 0.542; CSA+STRUCTURE 0.654 / -0.196 / 0.290 / 0.595; MLP+STRUCTURE 0.638 / -0.156 / 0.154 / 0.390; JK-EGW 0.719 / 0.117 / 0.380 / 0.674. MS-COCO 9k: CSA 0.673 / -0.150 / 0.263 / 0.549; CSA+STRUCTURE 0.689 / -0.143 / 0.304 / 0.613; MLP+STRUCTURE 0.638 / -0.133 / 0.084 / 0.239; JK-EGW 0.633 / 0.104 / 0.413 / 0.706. Note: the text says JK-EGW has the highest purity on both datasets, but on 9k its purity (0.633) is the lowest of the four.",
+      "page": 24,
+      "quote": "Table 1: Alignment and retrieval performance of JK-EGW and baselines.",
+      "missing": false
+    },
+    {
+      "id": "result-figure-5-tsne",
+      "kind": "result",
+      "text": "Figure 5: 2D t-SNE of the shared representations on MS-COCO 6K for JK-EGW, CSA+STRUCTURE, CSA and MLP+STRUCTURE. Qualitative only.",
+      "page": 25,
+      "quote": "Two-dimensional t-SNE embeddings of the shared representations learned by JK-EGW and the baselines on the MS–COCO 6K subset.",
+      "missing": false
+    },
+    {
+      "id": "result-table-2",
+      "kind": "result",
+      "text": "Table 2 (MS-COCO 6k, d ablation), Purity / Silhouette / R@1 / R@5. d=32: same as Table 1. d=48: CSA 0.634/-0.166/0.328/0.632; CSA+STRUCTURE 0.638/-0.156/0.355/0.676; MLP+STRUCTURE 0.633/-0.131/0.182/0.437; JK-EGW 0.722/0.106/0.443/0.727. d=64: CSA 0.632/-0.140/0.359/0.666; CSA+STRUCTURE 0.650/-0.131/0.386/0.707; MLP+STRUCTURE 0.634/-0.118/0.199/0.467; JK-EGW 0.713/0.086/0.450/0.725. d=128: CSA 0.639/-0.091/0.393/0.693; CSA+STRUCTURE 0.649/-0.087/0.414/0.726; MLP+STRUCTURE 0.625/-0.108/0.234/0.505; JK-EGW 0.702/0.078/0.452/0.726.",
+      "page": 49,
+      "quote": "Table 2: Alignment and retrieval performances on the MS–COCO 6k subset.",
+      "missing": false
+    },
+    {
+      "id": "result-table-3",
+      "kind": "result",
+      "text": "Table 3 (MS-COCO 9k, d ablation), Purity / Silhouette / R@1 / R@5. d=32: same as Table 1. d=48: CSA 0.687/-0.115/0.328/0.629; CSA+STRUCTURE 0.676/-0.116/0.358/0.683; MLP+STRUCTURE 0.636/-0.107/0.128/0.350; JK-EGW 0.633/0.112/0.460/0.757. d=64: CSA 0.669/-0.100/0.374/0.680; CSA+STRUCTURE 0.678/-0.102/0.408/0.730; MLP+STRUCTURE 0.654/-0.096/0.180/0.455; JK-EGW 0.629/0.092/0.507/0.785. d=128: CSA 0.683/-0.067/0.405/0.728; CSA+STRUCTURE 0.699/-0.076/0.442/0.756; MLP+STRUCTURE 0.643/-0.081/0.304/0.615; JK-EGW 0.620/0.070/0.506/0.785.",
+      "page": 50,
+      "quote": "Table 3: Alignment and retrieval performances on the MS–COCO 9k subset.",
+      "missing": false
+    },
+    {
+      "id": "coco-seeds-and-repeats-missing",
+      "kind": "parameter",
+      "text": "Table 1-3 numbers are single values with no error bars; the number of runs and seeds (subset sampling, latent sampling, MLP training) are not given.",
+      "page": 24,
+      "quote": "",
+      "missing": true,
+      "assumption": "Treat each table cell as one run with seed 0 and report run-to-run spread over at least 3 seeds alongside, since a single-seed comparison at tolerance 0.01 is not meaningful given the unspecified kernel, encoders and categories."
+    }
+  ]
+}
