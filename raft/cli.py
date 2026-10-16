@@ -237,6 +237,8 @@ def main(argv: list[str] | None = None) -> int:
     dr.add_argument("--oss", action="store_true")
     dr.add_argument("--try", dest="try_", action="store_true", help="also run a trivial task (uses a few cents of your quota)")
     dr.add_argument("--study", help="report transcripts in this study that still hold your home path")
+    pp = sub.add_parser("paper", help="Paperraft's brief for a paper and what your lab has for it (for agents)")
+    pp.add_argument("paper", help="an arXiv id or a paperaft.vercel.app/papers/… link")
     stt = sub.add_parser("status", help="where a study stands, gate by gate, and the command to run next")
     stt.add_argument("--study")
     stt.add_argument("--quick", action="store_true", help="don't run the grader to check the checker")
@@ -355,6 +357,15 @@ def main(argv: list[str] | None = None) -> int:
         study = paths.resolve_study(root, args.study)
         path = checker.approve(root, study, without_attacks=args.without_attacks, run_timeout=args.run_timeout)
         print(f"✓ approved: {path.relative_to(root)}. Commit it; runs and bench now work on {study}.")
+        return 0
+
+    if args.cmd == "paper":
+        from . import paperraft
+        pid = paperraft.parse_id(args.paper)
+        if not pid:
+            raise SystemExit(f"raft: not an arXiv id or Paperraft link: {args.paper!r}")
+        print(paperraft.text(root, pid, paperraft.answer(pid, cache_dir=root / ".raft" / "paperraft",
+                                                          fetch=paperraft.default_fetch)))
         return 0
 
     if args.cmd == "status":
