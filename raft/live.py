@@ -118,6 +118,11 @@ class Session:
             self.data["results"].update(kw)
             self._write(force=True)
 
+    def set_problem(self, problem: dict) -> None:
+        with self._lock:
+            self.data["problem"] = problem
+            self._write(force=True)
+
     # endings
     def finish(self, next_cmd) -> None:
         with self._lock:

@@ -329,6 +329,17 @@ def _bench_body(root, study, sd, agent, chosen, ls, *, model, oss, setup, label,
             with live.watching(ls, sid, agent, logs / f"{m}.jsonl"):
                 t = tried[m] = agents.run(agent, brief, ws, m, model=model, oss=oss, cmd=cmd, timeout=timeout,
                                           transcript=logs / f"{m}.jsonl")
+            problem = agents.diagnose(agent, live.read_tail(logs / f"{m}.jsonl"),
+                                      live.read_tail(logs / f"{m}.stderr.txt", 65536), t["exit"])
+            if problem and not (ws / "studies" / study / "methods" / m / "solver.py").is_file():
+                step = f"implement {m}"
+                ls.end(sid, "failed", detail=problem.headline(step))
+                ls.set_problem(problem.as_dict("agent", step))
+                nxt = agents.OTHER.get(problem.tool, agent) if problem.kind == "refused" else agent
+                raise SystemExit(f"raft: {problem.headline(step)}\n  {agents.NAMES.get(problem.tool, problem.tool)}: "
+                                 f"{problem.detail}\n{problem.advice}\n"
+                                 f"Next: uv run raft bench --study {study} --agent {nxt} (add your --setup, --model "
+                                 "and --label again)")
             ls.end(sid, "done" if t["exit"] == 0 and not t["timed_out"] else "failed",
                    detail="timed out" if t["timed_out"] else f"agent exited {t['exit']}")
             log(f"  {m}: " + ("timed out" if t["timed_out"] else f"agent exited {t['exit']}") + f" after {t['wall_s']:.0f}s")
