@@ -106,3 +106,13 @@ def test_site_never_carries_the_live_page(tiny_study, tmp_path):
     out = tmp_path / "site"
     compare.write_site(compare.build(tiny_study.parents[1], None), out)
     assert (out / "flow" / "flow.js").is_file() and not list(out.rglob("live.*"))
+
+
+def test_studies_carry_their_gaps(tiny_study):
+    from raft import compare, gaps
+    from test_gaps import ITEMS, with_missing
+    root = tiny_study.parents[1]
+    assert compare.build(root, None)["studies"][0]["gaps"] is None
+    with_missing(tiny_study, *ITEMS)
+    gaps.refresh(root, "tiny")
+    assert [g["id"] for g in compare.build(root, None)["studies"][0]["gaps"]["gaps"]] == ["corpus", "ties", "edge"]

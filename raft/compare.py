@@ -68,6 +68,7 @@ def build(root: Path, repo: str | None) -> dict:
             "headline": headline, "methods": methods,
             "counts": dict(Counter(m["headline_status"] for m in methods)),
             "checker": checker.approval_state(root, sd.name),
+            "gaps": _maybe("gaps", sd / "gaps.json"),
         })
     data["flows"] = {s: flow.build_flow(root, s, repo) for s in paths.studies(root, include_drafts=True)}
     data["bench"] = benchboard.board(root, repo, provenance.git_sha(root))
