@@ -237,6 +237,9 @@ def main(argv: list[str] | None = None) -> int:
     dr.add_argument("--oss", action="store_true")
     dr.add_argument("--try", dest="try_", action="store_true", help="also run a trivial task (uses a few cents of your quota)")
     dr.add_argument("--study", help="report transcripts in this study that still hold your home path")
+    stt = sub.add_parser("status", help="where a study stands, gate by gate, and the command to run next")
+    stt.add_argument("--study")
+    stt.add_argument("--quick", action="store_true", help="don't run the grader to check the checker")
     g = sub.add_parser("gaps", help="questions to the authors for what the paper leaves out, and their answers")
     g.add_argument("--study")
     g.add_argument("--all-studies", action="store_true")
@@ -352,6 +355,14 @@ def main(argv: list[str] | None = None) -> int:
         study = paths.resolve_study(root, args.study)
         path = checker.approve(root, study, without_attacks=args.without_attacks, run_timeout=args.run_timeout)
         print(f"✓ approved: {path.relative_to(root)}. Commit it; runs and bench now work on {study}.")
+        return 0
+
+    if args.cmd == "status":
+        from . import studystate
+        if args.study:
+            print(studystate.report(root, paths.resolve_study(root, args.study), args.quick))
+        else:
+            print(studystate.summary(root))
         return 0
 
     if args.cmd == "doctor":

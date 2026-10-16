@@ -22,6 +22,8 @@ Each job has a brief. Print it, then follow it exactly.
 | add a grader to a checker | `uv run raft grader add <checks\|table\|claims> --study <study>` |
 | say which missing detail keeps a check out of the grader | `uv run raft gaps --study <study> --blocks <id> "<check>"` |
 | build the site | `uv run raft compare` (writes `site/`) |
+| see where a study stands and what to run next | `uv run raft status --study <study>` |
+| check that the agent tools are installed and logged in | `uv run raft doctor` |
 
 These commands start other agents and spend the user's quota. Ask the user before you run any of them:
 `uv run raft prepare` (from an arXiv id to a checker waiting for approval) and `uv run raft bench` (scores an agent

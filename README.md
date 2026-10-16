@@ -63,6 +63,13 @@ that, `raft bench` and `raft run` work on the new paper, and they refuse to run 
 attacked and approved again. Step by step instead: `raft new --arxiv`, `raft extract`, `raft build-checker`,
 `raft validate`, `raft attack`, `raft approve`. Graders come from a small library: `raft grader add <checks|table|claims>`.
 
+Before the first step, `prepare` checks your tools: installed, logged in, and able to run one shell command
+(`uv run raft doctor --agent codex --try` does the same by hand; the result is remembered for 12 hours, and
+`--no-try` skips it). If a tool fails during a step (a refused brief, a broken shell tool, an error), `prepare` says
+so in plain words, stops without a wasted retry, and prints the command to continue, often with the other tool.
+`uv run raft status --study <study>` shows where a study stands and what to run next. Saved transcripts never hold
+your home path.
+
 ## Ask the authors
 
 Papers leave things out. The extractor flags each missing detail with the assumption used instead, and `raft gaps`
