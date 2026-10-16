@@ -73,13 +73,14 @@ try {
     await page.goto(base);
     await page.waitForSelector(".lv-head h1", { timeout: 5000 });
     await page.route("**/live.json", (r) => r.abort());
-    await page.waitForTimeout(2800);
+    // Wait for the page's two missed polls instead of sleeping: CI runners are slower than laptops.
     const gone = page.locator(".lv-gone");
+    await gone.waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
     if (!(await gone.isVisible())) fail("disconnected: the line is not visible");
     else if (!(await gone.textContent())?.includes("raft is no longer serving this page")) fail("disconnected: wrong text");
     if ((await page.textContent(".lv-timer"))?.trim()) fail("disconnected: timer text is not empty");
     await page.unroute("**/live.json");
-    await page.waitForTimeout(1500);
+    await gone.waitFor({ state: "hidden", timeout: 10000 }).catch(() => {});
     if (await gone.isVisible()) fail("disconnected: the line stays after the server is back");
     await page.close();
     if (!process.exitCode) console.log("✓ disconnected");
