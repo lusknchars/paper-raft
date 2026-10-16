@@ -112,7 +112,7 @@ A result shows as **verified** only when it is within tolerance, a reviewer veri
 
 ## Using it with your agent tool
 
-The roles in `roles/` are plain markdown, and `raft extract | implement <m> | review <m>` prints them filled in for a study, so any tool can follow them. Claude Code users get ready-made agents and a `reproduce-paper` skill in `.claude/` (source: `adapters/claude-code/`). To compare setups, use `raft bench` (above).
+Agents that open this repository read [AGENTS.md](AGENTS.md) (Claude Code reads it through `CLAUDE.md`): which brief to print for each job, the rules, and the checks to run before finishing. The roles in `roles/` are plain markdown, and `raft extract | implement <m> | review <m>` prints them filled in for a study, so any tool can follow them. Claude Code users get ready-made agents and a `reproduce-paper` skill in `.claude/` (source: `adapters/claude-code/`). To compare setups, use `raft bench` (above).
 
 ## Add a study or a method
 
