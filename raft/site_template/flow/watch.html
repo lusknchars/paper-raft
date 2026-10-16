@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Paper Raft · watch</title>
   <link rel="stylesheet" href="/flow/flow.css">
+  <link rel="stylesheet" href="/flow/live.css">
   <script type="importmap">
   { "imports": { "three": "/vendor/three-0.186.1/build/three.module.js",
                  "three/addons/": "/vendor/three-0.186.1/examples/jsm/" } }
@@ -15,9 +16,13 @@
   </style>
 </head>
 <body>
+  <div id="live"></div>
   <div id="flow"></div>
   <script type="module">
     import { mountFlow } from "/flow/flow.js";
+    import { mountLive } from "/flow/live.js";
+    const study = (await (await fetch("/flow.json", { cache: "no-store" }).catch(() => null))?.json().catch(() => null))?.study;
+    mountLive(document.getElementById("live"), { url: "/live.json", compact: true, study });
     const host = document.getElementById("flow");
     let data;
     while (!data) {

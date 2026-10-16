@@ -102,3 +102,42 @@ def test_watch_nul_byte_path_is_404(server):
         while chunk := sock.recv(4096):
             data += chunk
     assert b" 404 " in data.split(b"\r\n", 1)[0]
+
+
+from raft import live
+
+
+def test_watch_without_a_study_serves_the_live_page_and_sessions(tiny_git_study):
+    root = tiny_git_study.parents[1]
+    srv = watch.make_server(root, None, 0)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        assert json.loads(_get(srv, "/live.json")[2]) == []
+        s = live.Session(root, "prepare", "tiny", agents={}, total=1)
+        got = json.loads(_get(srv, "/live.json")[2])
+        assert got[0]["id"] == s.path.stem and got[0]["state"] == "running"
+        assert b"mountLive" in _get(srv, "/")[2]
+        assert _get(srv, "/flow/live.js")[1].startswith("text/javascript")
+        with pytest.raises(urllib.error.HTTPError) as e:
+            _get(srv, "/flow.json")
+        assert e.value.code == 404
+    finally:
+        srv.shutdown()
+        srv.server_close()
+
+
+def test_watch_with_a_study_filters_sessions(server):
+    srv, sd = server
+    live.Session(sd.parents[1], "prepare", "other", agents={}, total=1)
+    assert json.loads(_get(srv, "/live.json")[2]) == []
+
+
+def test_background_server_survives_a_taken_port(tiny_git_study, capsys):
+    root = tiny_git_study.parents[1]
+    first = watch.background(root, port=0, open_browser=False)
+    try:
+        assert watch.background(root, port=first.server_address[1], open_browser=False) is None
+        assert "in use" in capsys.readouterr().out
+    finally:
+        first.shutdown()
+        first.server_close()

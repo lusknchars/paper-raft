@@ -85,7 +85,7 @@ def write_site(data: dict, out_dir: Path) -> None:
     for tree in ("flow", "vendor"):
         if (tpl / tree).is_dir():
             shutil.copytree(tpl / tree, out_dir / tree, dirs_exist_ok=True,
-                            ignore=shutil.ignore_patterns("watch.html"))
+                            ignore=shutil.ignore_patterns("watch.html", "live.html", "live.js", "live.css"))
     (out_dir / "flows").mkdir(exist_ok=True)
     for sid, f in data.get("flows", {}).items():
         (out_dir / "flows" / f"{sid}.json").write_text(json.dumps(f, indent=1, ensure_ascii=False) + "\n")

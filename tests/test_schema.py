@@ -73,6 +73,16 @@ VALID = {
         "approved_by": {"name": "Owner", "email": "o@example.com"}, "approved_at": "2026-10-15T00:00:00+00:00",
         "builder_agent": None, "attacker_agent": None, "rounds": None, "attacks": None,
     },
+    "live": {
+        "kind": "prepare", "study": "tiny", "title": None, "arxiv": None, "pid": 4242,
+        "started_at": "2026-10-15T00:00:00+00:00", "updated_at": "2026-10-15T00:00:05+00:00", "state": "running",
+        "agents": {"builder": {"tool": "codex", "model": None}}, "units": {"done": 0.5, "total": 4},
+        "steps": [{"id": "extract-1", "label": "Extract", "state": "running", "agent": "builder", "method": None,
+                   "timeout_s": 60, "started_at": "2026-10-15T00:00:01+00:00", "wall_s": None, "detail": None,
+                   "activity": [{"t": "2026-10-15T00:00:02+00:00", "text": "reading the PDF"}],
+                   "stderr_tail": None}],
+        "results": {}, "message": None, "next": None,
+    },
 }
 
 

@@ -69,13 +69,26 @@ Every study is also drawn as a chain: the paper, the items extracted from it, th
 and the runs, with a percentage at each link and the results in plain terms (bias in σ, how much the error falls as
 the budget grows, the exact-case error). Open it from any study's **flow** link on the site.
 
-While you run a study, keep the same view open on your machine:
+While you run a study, keep its flow open on your machine:
 
     uv run raft watch --study transduced-lm-2026
 
 It serves on 127.0.0.1 only and shows each run's progress as it happens; a method can report progress inside a
 run by taking `solve(setup, progress)` and calling `progress(fraction)`. `raft flow-export --study <s> --out <file>`
-writes a committed study's flow for other sites, such as Paperraft.
+writes a committed study's flow for other sites, such as Paperraft. Without `--study`, `raft watch` shows live
+sessions instead (see below).
+
+### Watch it live
+
+Add `--watch` to `raft prepare` or `raft bench` and a local page opens while it runs:
+
+    uv run raft prepare --arxiv 2608.04234 --agent claude-code --attacker codex --watch
+
+It shows the paper and the agents, each step as a node in a glowing network, the percentage (finished steps out of
+all steps, never a guess inside a step), what the agent is doing right now in its own words, any errors from the
+tool, and results so far: checker holes and attack rounds for `prepare`, passed runs and score for `bench`.
+`uv run raft watch` shows every session on this machine. It all stays on 127.0.0.1; session files are in
+`.raft/live/` and are never committed.
 
 ## How it works
 

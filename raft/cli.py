@@ -3,6 +3,8 @@ import argparse
 import json
 import re
 import sys
+import time
+from contextlib import contextmanager
 from pathlib import Path
 
 from . import briefs, paths, runner, scaffold, validate
@@ -39,7 +41,7 @@ def _params(rest: list[str]) -> dict:
 KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out", "--title", "--doi", "--help", "-h",
          "--assets", "--port", "--no-open", "--agent", "--model", "--oss", "--setup", "--methods", "--label", "--cmd",
          "--run-timeout", "--verify", "--table", "--force", "--arxiv", "--id", "--brief", "--round", "--without-attacks", "--attacker", "--attacker-model", "--attacker-cmd",
-         "--rounds"}
+         "--rounds", "--watch"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -64,6 +66,26 @@ def _report(problems: list[str], ok: str) -> int:
         return 1
     print(f"✓ {ok}")
     return 0
+
+
+LIVE_GRACE_S = 2.5  # how long --watch keeps serving after the command ends, so the page sees the final state
+
+
+@contextmanager
+def _live_view(root: Path, on: bool):
+    from . import watch
+    if not on:
+        print("• watch live: uv run raft watch", flush=True)
+        yield
+        return
+    srv = watch.background(root)
+    try:
+        yield
+    finally:
+        if srv is not None:
+            time.sleep(LIVE_GRACE_S)
+            srv.shutdown()
+            srv.server_close()
 
 
 def _duration(text: str) -> float:
@@ -151,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
     rp.add_argument("--timeout", type=float, default=1800.0)
     c = sub.add_parser("compare", help="score every run and build the static site")
     c.add_argument("--out", default="site")
-    w = sub.add_parser("watch", help="show the flow view on localhost, live while runs are going")
+    w = sub.add_parser("watch", help="show live prepare and bench sessions on localhost; with --study, the flow view of its runs")
     w.add_argument("--study")
     w.add_argument("--port", type=int, default=8765)
     w.add_argument("--no-open", action="store_true")
@@ -160,6 +182,7 @@ def main(argv: list[str] | None = None) -> int:
     fe.add_argument("--out", required=True)
     fe.add_argument("--assets")
     b = sub.add_parser("bench", help="give a study to your agent in a blind workspace, grade its code, write a scoreboard entry")
+    b.add_argument("--watch", action="store_true", help="open the live view in your browser while it runs")
     b.add_argument("--study")
     b.add_argument("--agent", choices=("claude-code", "codex", "command"))
     b.add_argument("--model")
@@ -190,6 +213,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--run-timeout", type=_duration, default=1800.0)
     pr = sub.add_parser("prepare", help="from an arXiv id or a draft study to a checker ready for your approval, with agents")
     pr.add_argument("--arxiv")
+    pr.add_argument("--watch", action="store_true", help="open the live view in your browser while it runs")
     pr.add_argument("--study")
     pr.add_argument("--id", dest="new_id")
     pr.add_argument("--brief")
@@ -231,7 +255,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.cmd == "watch":
         from . import watch
-        watch.serve(root, paths.resolve_study(root, args.study), args.port, not args.no_open)
+        study = paths.resolve_study(root, args.study) if args.study else None
+        watch.serve(root, study, args.port, not args.no_open)
         return 0
     if args.cmd == "flow-export":
         from . import compare, flow
@@ -261,9 +286,10 @@ def main(argv: list[str] | None = None) -> int:
             p.error("bench needs --agent (or --table, or --verify)")
         study = paths.resolve_study(root, args.study)
         methods = [m.strip() for m in args.methods.split(",") if m.strip()] if args.methods else None
-        dest = bench.run_bench(root, study, args.agent, model=args.model, oss=args.oss, setup=args.setup,
-                               methods=methods, label=args.label, cmd=args.agent_cmd, timeout=args.timeout,
-                               run_timeout=args.run_timeout)
+        with _live_view(root, args.watch):
+            dest = bench.run_bench(root, study, args.agent, model=args.model, oss=args.oss, setup=args.setup,
+                                   methods=methods, label=args.label, cmd=args.agent_cmd, timeout=args.timeout,
+                                   run_timeout=args.run_timeout)
         entry = json.loads((dest / "entry.json").read_text())
         print(f"✓ score {entry['score']['passed']}/{entry['score']['expected']} → {dest.relative_to(root)}\n"
               "  Read the transcript before sharing it, then commit the folder and open a pull request to join the scoreboard.")
@@ -290,10 +316,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "prepare":
         from . import prepare
-        prepare.prepare(root, agent=args.agent, arxiv=args.arxiv, study=args.study, study_id=args.new_id,
-                        brief_url=args.brief, model=args.model, cmd=args.agent_cmd, attacker=args.attacker,
-                        attacker_model=args.attacker_model, attacker_cmd=args.attacker_cmd, timeout=args.timeout,
-                        run_timeout=args.run_timeout, rounds=args.rounds)
+        with _live_view(root, args.watch):
+            prepare.prepare(root, agent=args.agent, arxiv=args.arxiv, study=args.study, study_id=args.new_id,
+                            brief_url=args.brief, model=args.model, cmd=args.agent_cmd, attacker=args.attacker,
+                            attacker_model=args.attacker_model, attacker_cmd=args.attacker_cmd, timeout=args.timeout,
+                            run_timeout=args.run_timeout, rounds=args.rounds)
         return 0
 
     params = _params(rest)

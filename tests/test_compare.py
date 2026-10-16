@@ -100,3 +100,9 @@ def test_site_data_has_the_checker_state(tiny_git_study):
     from raft import compare
     (study,) = compare.build(tiny_git_study.parents[1], None)["studies"]
     assert study["checker"]["state"] == "approved-before-attacks"
+
+
+def test_site_never_carries_the_live_page(tiny_study, tmp_path):
+    out = tmp_path / "site"
+    compare.write_site(compare.build(tiny_study.parents[1], None), out)
+    assert (out / "flow" / "flow.js").is_file() and not list(out.rglob("live.*"))

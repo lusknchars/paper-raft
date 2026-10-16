@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "A live prepare or bench session (local only, never committed)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "study", "title", "arxiv", "pid", "started_at", "updated_at", "state", "agents", "units",
+               "steps", "results", "message", "next"],
+  "properties": {
+    "kind": {"enum": ["prepare", "bench"]},
+    "study": {"type": "string", "minLength": 1},
+    "title": {"type": ["string", "null"]},
+    "arxiv": {"type": ["string", "null"]},
+    "pid": {"type": "integer", "minimum": 1},
+    "started_at": {"type": "string"},
+    "updated_at": {"type": "string"},
+    "state": {"enum": ["running", "finished", "stopped"]},
+    "agents": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false, "required": ["tool", "model"],
+        "properties": {"tool": {"type": "string"}, "model": {"type": ["string", "null"]}}
+      }
+    },
+    "units": {
+      "type": "object", "additionalProperties": false, "required": ["done", "total"],
+      "properties": {"done": {"type": "number", "minimum": 0}, "total": {"type": "number", "minimum": 0}}
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "label", "state", "agent", "method", "timeout_s", "started_at", "wall_s", "detail",
+                     "activity", "stderr_tail"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "label": {"type": "string"},
+          "state": {"enum": ["running", "done", "failed"]},
+          "agent": {"type": ["string", "null"]},
+          "method": {"type": ["string", "null"]},
+          "timeout_s": {"type": ["number", "null"]},
+          "started_at": {"type": "string"},
+          "wall_s": {"type": ["number", "null"]},
+          "detail": {"type": ["string", "null"]},
+          "activity": {
+            "type": "array",
+            "items": {"type": "object", "additionalProperties": false, "required": ["t", "text"],
+                      "properties": {"t": {"type": "string"}, "text": {"type": "string", "maxLength": 160}}}
+          },
+          "stderr_tail": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "results": {"type": "object"},
+    "message": {"type": ["string", "null"]},
+    "next": {"type": ["string", "null"]}
+  }
+}
