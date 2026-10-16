@@ -41,7 +41,8 @@ def _params(rest: list[str]) -> dict:
 KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out", "--title", "--doi", "--help", "-h",
          "--assets", "--port", "--no-open", "--agent", "--model", "--oss", "--setup", "--methods", "--label", "--cmd",
          "--run-timeout", "--verify", "--table", "--force", "--arxiv", "--id", "--brief", "--round", "--without-attacks", "--attacker", "--attacker-model", "--attacker-cmd",
-         "--rounds", "--watch"}
+         "--rounds", "--watch", "--letter", "--mark-asked", "--answer", "--decline", "--blocks", "--from", "--by",
+         "--source", "--publish", "--private", "--note", "--reword"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -158,6 +159,7 @@ def main(argv: list[str] | None = None) -> int:
     n.add_argument("--arxiv", help="fetch the record and PDF from arXiv, e.g. 2608.27428")
     n.add_argument("--id", dest="new_id", help="with --arxiv: the study id (default: surname-year-word)")
     n.add_argument("--brief", help="with --arxiv: the paper's Paperraft brief URL")
+    n.add_argument("--from", dest="from_study", help="start a stricter version of this study, using its published author answers")
     e = sub.add_parser("extract", parents=[common], help="print the extractor brief, or --validate extraction.json")
     e.add_argument("--validate", action="store_true")
     im = sub.add_parser("implement", parents=[common], help="print the implementer brief for one method")
@@ -226,6 +228,23 @@ def main(argv: list[str] | None = None) -> int:
     pr.add_argument("--timeout", type=_duration, default=2700.0, help="per agent step (default 45m)")
     pr.add_argument("--run-timeout", type=_duration, default=1800.0)
     pr.add_argument("--rounds", type=int, default=3)
+    g = sub.add_parser("gaps", help="questions to the authors for what the paper leaves out, and their answers")
+    g.add_argument("--study")
+    g.add_argument("--all-studies", action="store_true")
+    ga = g.add_mutually_exclusive_group()  # one action per call: a reply is never recorded alongside another
+    ga.add_argument("--validate", action="store_true")
+    ga.add_argument("--reword", nargs=2, metavar=("ID", "QUESTION"), help="put an open question in plain words before it is sent")
+    ga.add_argument("--blocks", nargs=2, metavar=("ID", "CHECK"), help="name the check a missing detail keeps out of the grader")
+    ga.add_argument("--letter", action="store_true", help="print a letter to the authors (changes nothing)")
+    ga.add_argument("--mark-asked", action="store_true", help="record that the letter's questions were sent today (owner only)")
+    ga.add_argument("--answer", metavar="ID", help="record an author's answer (owner only; with --publish or --private)")
+    ga.add_argument("--decline", metavar="ID", help="record that the author can't share it (owner only)")
+    g.add_argument("--from", dest="answer_file", help="with --answer --publish: a file holding the author's answer")
+    g.add_argument("--by", help="who answered")
+    g.add_argument("--source", help="where the answer came from, e.g. \"email, 2026-10-20\"")
+    g.add_argument("--publish", action="store_true", help="the author agreed to publication")
+    g.add_argument("--private", action="store_true", help="the author did not agree; only who, where and when are kept")
+    g.add_argument("--note", help="with --private: your own words on what the answer told you (published)")
     keep, rest = _split(sys.argv[1:] if argv is None else argv)
     args = p.parse_args(keep)
     if rest and args.cmd not in ("run", "repro"):
@@ -233,6 +252,18 @@ def main(argv: list[str] | None = None) -> int:
     root = paths.repo_root()
 
     if args.cmd == "new":
+        if args.from_study:
+            new_id = args.new_id or args.study_id
+            if not new_id:
+                p.error("new --from needs --id <new study id>")
+            from . import gaps
+            d = scaffold.new_version(root, args.from_study, new_id)
+            k = len(gaps.published(root / "studies" / args.from_study))
+            print(f"✓ created {d.relative_to(root)} as a draft version of {args.from_study}, with fresh problem/ "
+                  f"stubs. Its extractor gets {k} published answer{'' if k == 1 else 's'} from "
+                  f"studies/{args.from_study}/gaps.json. Next: `uv run raft prepare --study {new_id} --agent "
+                  "<claude-code|codex>`")
+            return 0
         if args.arxiv:
             from . import arxiv
             d = arxiv.intake(root, args.arxiv, study_id=args.new_id or args.study_id, brief=args.brief,
@@ -312,6 +343,52 @@ def main(argv: list[str] | None = None) -> int:
         study = paths.resolve_study(root, args.study)
         path = checker.approve(root, study, without_attacks=args.without_attacks, run_timeout=args.run_timeout)
         print(f"✓ approved: {path.relative_to(root)}. Commit it; runs and bench now work on {study}.")
+        return 0
+
+    if args.cmd == "gaps":
+        from . import gaps
+        if args.validate:
+            targets = paths.studies(root) if args.all_studies else [paths.resolve_study(root, args.study)]
+            problems = [x for s in targets for x in gaps.validate(root / "studies" / s)]
+            return _report(problems, f"gaps.json valid in {len(targets)} stud{'y' if len(targets) == 1 else 'ies'}")
+        if args.all_studies:
+            p.error("gaps --all-studies works only with --validate")
+        if not args.study and not (args.blocks or args.reword or args.letter or args.mark_asked or args.answer or args.decline):
+            print(gaps.summary_text(root))
+            return 0
+        study = paths.resolve_study(root, args.study)
+        if args.reword:
+            gaps.reword(root, study, *args.reword)
+            print(f"✓ {args.reword[0]}: reworded")
+            return 0
+        if args.letter:
+            from . import compare
+            print(gaps.letter(root, study, compare.repo_url(root)))
+            return 0
+        if args.mark_asked:
+            ids = gaps.mark_asked(root, study)
+            print(f"✓ marked {len(ids)} questions asked today: {', '.join(ids)}")
+            return 0
+        if args.blocks:
+            gid, text = args.blocks
+            gaps.set_blocks(root, study, gid, text)
+            print(f"✓ {study}/{gid}: blocks: {text}")
+            return 0
+        if args.answer or args.decline:
+            if not (args.by and args.source):
+                p.error("--answer and --decline need --by and --source")
+            if args.decline:
+                gaps.decline(root, study, args.decline, by=args.by, source=args.source)
+                print(f"✓ {args.decline}: declined")
+                return 0
+            if args.publish == args.private:
+                p.error("--answer needs exactly one of --publish or --private")
+            text = Path(args.answer_file).read_text() if args.answer_file else None
+            g_ = gaps.answer(root, study, args.answer, by=args.by, source=args.source, publish=args.publish,
+                             text=text, note=args.note)
+            print(f"✓ {args.answer}: {g_['status'].replace('_', ' ')}. Commit studies/{study}/gaps.json.")
+            return 0
+        print(gaps.listing(gaps.refresh(root, study), study))
         return 0
 
     if args.cmd == "prepare":

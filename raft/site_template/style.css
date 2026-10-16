@@ -19,6 +19,8 @@ h2 { font-size: 18px; margin: 16px 0 4px; } h3 { font-size: 15px; margin: 24px 0
 .badge { display: inline-block; padding: 0 6px; border-radius: 4px; border: 1px solid currentColor; font-size: 12px; }
 .badge.verified { color: var(--ok); } .badge.unverified { color: var(--warn); }
 .badge.failed { color: var(--bad); } .badge.no-run, .badge.missing { color: var(--muted); }
+.badge.gap-open, .badge.gap-asked { color: var(--warn); } .badge.gap-answered { color: var(--ok); }
+.badge.gap-answered_private, .badge.gap-declined, .badge.gap-resolved { color: var(--muted); }
 .controls { display: flex; flex-wrap: wrap; gap: 16px; margin: 16px 0; }
 select, button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line);
   border-radius: 4px; padding: 4px 8px; min-height: 32px; }

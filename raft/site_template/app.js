@@ -65,7 +65,7 @@ function route() {
   const [view, id, sub] = location.hash.slice(1).split("/");
   const study = D.studies.find((s) => s.id === id);
   if (view === "flow" && D.flows && Object.hasOwn(D.flows, id)) flowView(id);
-  else if (view === "study" && study) (sub === "extraction" ? extractionView : compareView)(study);
+  else if (view === "study" && study) ({ extraction: extractionView, gaps: gapsView }[sub] || compareView)(study);
   else if (view === "bench") benchView();
   else overview();
 }
@@ -104,15 +104,67 @@ function studyNav(study) {
     el("nav", {}, el("a", { href: "#" }, "← all studies"), " · ",
       el("a", { href: `#study/${study.id}` }, "results"), " · ",
       el("a", { href: `#flow/${study.id}` }, "flow"), " · ",
-      el("a", { href: `#study/${study.id}/extraction` }, "extraction")),
+      el("a", { href: `#study/${study.id}/extraction` }, "extraction"),
+      study.gaps ? [" · ", el("a", { href: `#study/${study.id}/gaps` }, "gaps")] : null),
     el("h2", {}, study.paper.title || study.id),
     el("p", { class: "muted" }, study.reference.citation, " · ",
       el("a", { href: `https://doi.org/${study.reference.doi}`, target: "_blank", rel: "noopener noreferrer" }, "DOI"),
       safeUrl(study.paper.brief_url) && [" · ",
         el("a", { href: study.paper.brief_url, target: "_blank", rel: "noopener noreferrer" }, "Read the brief on Paperraft")]),
     checkerLine(study),
+    gapsLine(study),
+    ...versionLines(study),
     study.paper.experiment && el("p", { class: "experiment" }, study.paper.experiment),
-  ];
+  ].filter(Boolean);
+}
+
+const GAP_STATUS = { open: "open", asked: "asked", answered: "answered", answered_private: "answered privately",
+  declined: "declined", resolved: "resolved" };
+
+function gapsLine(study) {
+  if (!study.gaps) return null;
+  const gs = study.gaps.gaps.filter((g) => g.status !== "resolved");
+  const n = (...st) => gs.filter((g) => st.includes(g.status)).length;
+  const declined = n("declined");
+  return el("p", { class: "muted gaps-line" },
+    el("a", { href: `#study/${study.id}/gaps` }, `${gs.length} detail${gs.length === 1 ? "" : "s"} the paper leaves out`),
+    ` · ${n("asked")} asked · ${n("answered", "answered_private")} answered` + (declined ? ` · ${declined} declined` : ""));
+}
+
+function versionLines(study) {
+  const out = [];
+  const src = study.paper.version_of;
+  if (src) {
+    const s = D.studies.find((x) => x.id === src);
+    const k = (study.extraction?.items || []).filter((i) => i.answer).length;
+    out.push(el("p", { class: "muted" }, "Stricter version of ", el("a", { href: `#study/${src}` }, s ? s.paper.title || src : src),
+      `, using ${k} author answer${k === 1 ? "" : "s"}.`));
+  }
+  for (const v of D.studies.filter((x) => x.paper.version_of === study.id))
+    out.push(el("p", { class: "muted" }, "A stricter version uses the authors' answers: ", el("a", { href: `#study/${v.id}` }, v.id)));
+  return out;
+}
+
+function gapAnswer(g) {
+  const a = g.answer;
+  if (!a) return g.status === "asked" ? `asked ${g.asked_on}` : "—";
+  if (g.status === "answered") return [el("p", {}, a.text), el("p", { class: "muted" }, `— ${a.by}, ${a.source}`)];
+  return [`${GAP_STATUS[g.status]} (${a.recorded_on})`, a.note ? el("p", { class: "muted" }, `Our note: ${a.note}`) : null];
+}
+
+function gapsView(study) {
+  app.append(...studyNav(study));
+  if (!study.gaps) { app.append(el("p", {}, "No gaps recorded yet.")); return; }
+  app.append(el("p", { class: "muted" }, "Details the paper leaves out, the assumption we made for each, and what the ",
+    "authors said. Paper Raft never contacts anyone: a maintainer sends the questions and records the answers. Only ",
+    "answers the authors agreed to publish are shown."));
+  app.append(el("div", { class: "table-wrap" }, el("table", { class: "gaps" },
+    el("thead", {}, el("tr", {}, ["page", "question", "status", "answer"].map((h) => el("th", {}, h)))),
+    el("tbody", {}, study.gaps.gaps.map((g) => el("tr", { "data-gap": g.id },
+      el("td", { class: "num" }, g.page),
+      el("td", { class: "wrap" }, g.question, g.blocks ? el("p", { class: "muted" }, "Blocks: ", g.blocks) : null),
+      el("td", {}, el("span", { class: `badge gap-${g.status}` }, GAP_STATUS[g.status] || g.status)),
+      el("td", { class: "wrap" }, gapAnswer(g))))))));
 }
 
 function compareView(study) {

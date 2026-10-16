@@ -12,6 +12,8 @@ You turn the paper into a checker: the code that decides whether someone's imple
 5. `{{study_dir}}/checker/answer.py`: `reference_answer(setup)` (take `method` too if measure does), the best answer you can build from the paper; `REFERENCE_ANSWER_PASSES = True` (or `False`, or a `{method: bool}` map, when the claim is about estimation so a perfect closed-form answer must fail); `SKIP_MUTATIONS = {}` (only with a reason per entry); `METHODS = [...]` if measure grades by method name.
 6. `{{study_dir}}/checker/attacks/<name>.py`: at least two cheating methods of your own, each a normal `solve(setup)` (hard-coded numbers, the right shape filled with junk). File names are lowercase with hyphens.
 
+**Gaps:** for each missing item in `extraction.json` that kept a check out of `problem/` (a number you could not grade against, a case you could not build), name that check: `uv run raft gaps --study {{study}} --blocks <item id> "<the check>"`. The owner sends these to the authors. Never record an answer.
+
 **Rules:** Never lower a tolerance to make something pass; say in `NOTE.md` that the paper's number cannot be met instead. Use numpy and scipy only. Do not write anything in `methods/`, `runs/` or `reviews/`.
 
 **Done when** `uv run raft validate --study {{study}}` prints that the checker holds. Never run `raft approve`: only the owner approves.

@@ -20,6 +20,7 @@ Each job has a brief. Print it, then follow it exactly.
 | attack a checker | `uv run raft attack --study <study>` |
 | check a checker | `uv run raft validate --study <study>` |
 | add a grader to a checker | `uv run raft grader add <checks\|table\|claims> --study <study>` |
+| say which missing detail keeps a check out of the grader | `uv run raft gaps --study <study> --blocks <id> "<check>"` |
 | build the site | `uv run raft compare` (writes `site/`) |
 
 These commands start other agents and spend the user's quota. Ask the user before you run any of them:
@@ -31,6 +32,8 @@ running on this machine.
 
 - Never run `raft approve`, and never create or edit `checker-approval.json`. Only the owner approves, in their own
   terminal.
+- Never record, edit or invent an author's answer in `gaps.json`. Only the owner records answers, in their own
+  terminal (`raft gaps --answer` refuses inside agent sessions).
 - Never lower a tolerance to make something pass. If the paper's number can't be met, say so and record the failure.
 - Once a study has runs, its `problem/` folder is frozen. Before that, only the checker builder writes there.
 - If you implement a method, write only inside `studies/<study>/methods/<method>/`. Never open `problem/measure.py`,

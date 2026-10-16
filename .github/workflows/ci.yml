@@ -17,6 +17,7 @@ jobs:
       - run: uv run pytest -q
       - run: uv run raft extract --validate --all-studies
       - run: uv run raft review --validate --all-studies
+      - run: uv run raft gaps --validate --all-studies
       - run: uv run raft repro --all-studies
       - run: uv run raft compare
         env:
@@ -28,6 +29,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: node scripts/check_flow.mjs site
       - run: node scripts/check_bench.mjs site
+      - run: node scripts/check_gaps.mjs site
       - run: node scripts/check_live.mjs
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'
