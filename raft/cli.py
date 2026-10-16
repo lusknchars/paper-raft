@@ -42,7 +42,7 @@ KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out"
          "--assets", "--port", "--no-open", "--agent", "--model", "--oss", "--setup", "--methods", "--label", "--cmd",
          "--run-timeout", "--verify", "--table", "--force", "--arxiv", "--id", "--brief", "--round", "--without-attacks", "--attacker", "--attacker-model", "--attacker-cmd",
          "--rounds", "--watch", "--letter", "--mark-asked", "--answer", "--decline", "--blocks", "--from", "--by",
-         "--source", "--publish", "--private", "--note", "--reword", "--try", "--no-try", "--quick"}
+         "--source", "--publish", "--private", "--note", "--reword", "--try", "--no-try", "--quick", "--paper"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -237,6 +237,13 @@ def main(argv: list[str] | None = None) -> int:
     dr.add_argument("--oss", action="store_true")
     dr.add_argument("--try", dest="try_", action="store_true", help="also run a trivial task (uses a few cents of your quota)")
     dr.add_argument("--study", help="report transcripts in this study that still hold your home path")
+    ap2 = sub.add_parser("app", help="open the Paper Raft app: your studies, runs, bench and Paperraft's papers, on localhost")
+    ap2.add_argument("--study")
+    ap2.add_argument("--paper", help="an arXiv id or a paperaft.vercel.app/papers/… link")
+    ap2.add_argument("--port", type=int, default=8765)
+    ap2.add_argument("--no-open", action="store_true")
+    pp = sub.add_parser("paper", help="Paperraft's brief for a paper and what your lab has for it (for agents)")
+    pp.add_argument("paper", help="an arXiv id or a paperaft.vercel.app/papers/… link")
     stt = sub.add_parser("status", help="where a study stands, gate by gate, and the command to run next")
     stt.add_argument("--study")
     stt.add_argument("--quick", action="store_true", help="don't run the grader to check the checker")
@@ -355,6 +362,28 @@ def main(argv: list[str] | None = None) -> int:
         study = paths.resolve_study(root, args.study)
         path = checker.approve(root, study, without_attacks=args.without_attacks, run_timeout=args.run_timeout)
         print(f"✓ approved: {path.relative_to(root)}. Commit it; runs and bench now work on {study}.")
+        return 0
+
+    if args.cmd == "app":
+        from . import paperraft, watch
+        page = "/app.html"
+        if args.study:
+            page += f"#/study/{paths.resolve_study(root, args.study)}"
+        elif args.paper:
+            pid = paperraft.parse_id(args.paper)
+            if not pid:
+                raise SystemExit(f"raft: not an arXiv id or Paperraft link: {args.paper!r}")
+            page += f"#/paper/{pid}"
+        watch.serve(root, None, args.port, not args.no_open, path=page)
+        return 0
+
+    if args.cmd == "paper":
+        from . import paperraft
+        pid = paperraft.parse_id(args.paper)
+        if not pid:
+            raise SystemExit(f"raft: not an arXiv id or Paperraft link: {args.paper!r}")
+        print(paperraft.text(root, pid, paperraft.answer(pid, cache_dir=root / ".raft" / "paperraft",
+                                                          fetch=paperraft.default_fetch)))
         return 0
 
     if args.cmd == "status":

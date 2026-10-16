@@ -1,0 +1,30 @@
+{
+ "found": true,
+ "offline": false,
+ "stale": false,
+ "brief": {
+  "arxiv_id": "2608.27428",
+  "title": "Stochastic Estimation of Transduced Language Models",
+  "summary": "Unbiased prefix-probability estimates for transduced language models.",
+  "recommendation": "testar",
+  "minimum_test": [],
+  "claims": [
+   {
+    "claim_id": "claim-01",
+    "statement": "The estimators are unbiased."
+   },
+   null
+  ],
+  "source_url": "https://arxiv.org/abs/2608.27428",
+  "as_of": "2026-10-16",
+  "lab_reproductions": [
+   {
+    "title": "Paper Raft study: transduced-lm-2026",
+    "summary": "Five estimators, all pass.",
+    "methods_verified": 5,
+    "methods_total": 5
+   }
+  ],
+  "brief_url": "https://paperaft.vercel.app/papers/2608.27428/"
+ }
+}

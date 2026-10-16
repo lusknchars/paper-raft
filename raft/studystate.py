@@ -31,6 +31,36 @@ def _last(root: Path, study: str):
     return found[0] if found else None
 
 
+def last_stop(root, study: str) -> dict | None:
+    """How the newest prepare run for the study ended, when it did not finish."""
+    last = _last(Path(root), study)
+    if not last or last["state"] not in ("stopped", "lost"):
+        return None
+    why = (last.get("problem") or {}).get("headline") or (
+        "the run was interrupted (its process is gone)" if last["state"] == "lost"
+        else (last["message"] or "stopped").splitlines()[0].removeprefix("raft: "))
+    return {"headline": why, "at": last["updated_at"]}
+
+
+def arxiv_of(paper: dict) -> str | None:
+    """The study's arXiv id: `arxiv:` in paper.yaml, else the id inside an arXiv DOI (10.48550/arXiv.<id>)."""
+    if paper.get("arxiv"):
+        return str(paper["arxiv"])
+    doi = str(paper.get("doi") or "")
+    return doi.split("arXiv.", 1)[1] if "arXiv." in doi else None
+
+
+def find_arxiv(root, arxiv_id: str) -> str | None:
+    for s in paths.studies(Path(root), include_drafts=True):
+        try:
+            paper = yaml.safe_load((Path(root) / "studies" / s / "paper.yaml").read_text()) or {}
+        except (OSError, yaml.YAMLError):
+            continue  # a broken paper.yaml is reported by `raft status`, not here
+        if arxiv_of(paper) == arxiv_id:
+            return s
+    return None
+
+
 def tools(root, study: str) -> tuple:
     """The tools of the last prepare run, with a refused one swapped for the other tool."""
     s = _last(Path(root), study)
@@ -174,12 +204,9 @@ def report(root, study: str, quick: bool = False) -> str:
     for s in st:
         mark = "✓" if s.ok else ("✗" if s is first else "·")
         lines.append(f"{mark} {s.name:<11} {s.text}")
-    last = _last(root, study)
-    if last and last["state"] in ("stopped", "lost"):
-        why = (last.get("problem") or {}).get("headline") or (
-            "the run was interrupted (its process is gone)" if last["state"] == "lost"
-            else (last["message"] or "stopped").splitlines()[0].removeprefix("raft: "))
-        lines.append(f"  last stop: {why} ({last['updated_at'][:16].replace('T', ' ')})")
+    stop = last_stop(root, study)
+    if stop:
+        lines.append(f"  last stop: {stop['headline']} ({stop['at'][:16].replace('T', ' ')})")
     lines.append(f"Next: {next_step(root, study, st, tools(root, study))}")
     return "\n".join(lines)
 

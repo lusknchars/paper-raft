@@ -1,6 +1,7 @@
 """raft watch: the flow view on localhost, with live progress from this machine's runs. Nothing goes online."""
 import http.server
 import json
+import re
 import threading
 import webbrowser
 from pathlib import Path
@@ -8,7 +9,10 @@ from pathlib import Path
 from . import flow, live
 
 TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
-         ".css": "text/css; charset=utf-8", ".json": "application/json"}
+         ".css": "text/css; charset=utf-8", ".json": "application/json",
+         ".woff2": "font/woff2"}
+STUDY_JSON = re.compile(r"^/app/study/([a-z0-9][a-z0-9-]*)\.json$")
+PAPER_JSON = re.compile(r"^/paperraft/(\d{4}\.\d{4,5})\.json$")
 
 
 def read_progress(study_dir: Path) -> dict:
@@ -60,6 +64,23 @@ def make_server(root: Path, study: str | None, port: int) -> http.server.Threadi
                 return self._send((static / "flow" / "live.html").read_bytes(), TYPES[".html"])
             if path == "/live.json":
                 return self._json_or_error(lambda: live.sessions(root, study))
+            if path == "/app.html":
+                return self._send((static / "app" / "index.html").read_bytes(), TYPES[".html"])
+            if path == "/app.json":
+                from . import app
+                return self._json_or_error(lambda: app.app_data(root))
+            m = STUDY_JSON.match(path)
+            if m:
+                from . import app, paths
+                if m.group(1) not in paths.studies(root, include_drafts=True):
+                    return self.send_error(404)
+                return self._json_or_error(lambda: app.study_detail(root, m.group(1)))
+            m = PAPER_JSON.match(path)
+            if m:
+                from . import paperraft
+                return self._json_or_error(lambda: paperraft.answer(m.group(1), cache_dir=root / ".raft" / "paperraft"))
+            if path.startswith(("/app/study/", "/paperraft/")):
+                return self.send_error(404)
             if path == "/flow.json" and study:
                 return self._json_or_error(lambda: flow.build_flow(root, study))
             if path == "/progress.json" and study:
@@ -94,13 +115,14 @@ def background(root: Path, port: int = 8765, open_browser: bool = True):
     return srv
 
 
-def serve(root: Path, study: str | None, port: int, open_browser: bool) -> None:
+def serve(root: Path, study: str | None, port: int, open_browser: bool, path: str = "/") -> None:
     try:
         srv = make_server(root, study, port)
     except OSError:
         raise SystemExit(f"raft: port {port} is in use; pass --port <another>")
-    url = f"http://127.0.0.1:{srv.server_address[1]}/"
-    print(f"✓ watching {study or 'live sessions'} at {url} (local only; Ctrl-C to stop)", flush=True)
+    url = f"http://127.0.0.1:{srv.server_address[1]}{path}"
+    what = "the Paper Raft app" if path.startswith("/app.html") else (study or "live sessions")
+    print(f"✓ {what} at {url} (local only; Ctrl-C to stop)", flush=True)
     if open_browser:
         webbrowser.open(url)
     try:
