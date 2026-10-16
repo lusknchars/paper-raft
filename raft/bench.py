@@ -240,8 +240,30 @@ def _code_hash(code_dir: Path, methods: list[str]) -> str:
     return h.hexdigest()
 
 
+def redact(data: bytes) -> bytes:
+    """Replace the user's home directory with ~ (only as a whole path component; never when HOME is unusable)."""
+    home = os.path.expanduser("~").rstrip("/")
+    if not home.startswith("/"):
+        return data
+    return re.sub(re.escape(home.encode()) + rb"(?=[/\"'\s\\]|$)", b"~", data)
+
+
+def redact_file(path: Path) -> bool:
+    path = Path(path)
+    data = path.read_bytes()
+    new = redact(data)
+    if new == data:
+        return False
+    path.write_bytes(new)
+    return True
+
+
+def transcripts_with_home(paths) -> list[Path]:
+    return [Path(p) for p in paths if Path(p).is_file() and redact(Path(p).read_bytes()) != Path(p).read_bytes()]
+
+
 def trim_copy(src: Path, dst: Path, limit: int = TRANSCRIPT_LIMIT) -> None:
-    data = Path(src).read_bytes() if Path(src).is_file() else b""
+    data = redact(Path(src).read_bytes() if Path(src).is_file() else b"")
     if len(data) > limit:
         head = data[: limit // 2].rsplit(b"\n", 1)[0]
         tail = data[-(limit // 2):].split(b"\n", 1)[-1]

@@ -126,6 +126,9 @@ def prepare(root: Path, *, agent: str, arxiv: str | None = None, study: str | No
     sd = root / "studies" / study
     if not (sd / "paper.yaml").is_file():
         raise SystemExit(f"raft: no study {study!r}")
+    for t in sorted((sd / "checker" / "transcripts").glob("*")):
+        if t.is_file():
+            bench.redact_file(t)
     paper = yaml.safe_load((sd / "paper.yaml").read_text()) or {}
     ls = live.Session(root, "prepare", study, title=paper.get("title"), arxiv=str(paper["arxiv"]) if paper.get("arxiv") else None,
                       agents={"builder": {"tool": agent, "model": model}, "attacker": {"tool": attacker, "model": attacker_model}},
