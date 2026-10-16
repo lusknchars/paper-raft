@@ -16,6 +16,16 @@ uv run raft compare              # builds site/; open site/index.html
 
 No API key is needed to rerun and check results.
 
+## Open the app
+
+    uv run raft app
+
+A local dashboard in Paperraft's design, on 127.0.0.1: your studies (drafts included) with where each one stands
+and the next command, what's running now, your bench entries, and each study's results, flow, checker and gaps.
+Paste an arXiv id or a Paperraft link in its search bar to see Paperraft's brief next to what your lab has for that
+paper. `uv run raft paper <id>` prints the same as text. The app only reads your files; commands come with a copy
+button, and runs stay in your terminal.
+
 ## Bench: bring your agent
 
 How well does *your* agent setup reproduce a real paper? Point Claude Code or Codex, with your own model,

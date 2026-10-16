@@ -24,6 +24,8 @@ Each job has a brief. Print it, then follow it exactly.
 | build the site | `uv run raft compare` (writes `site/`) |
 | see where a study stands and what to run next | `uv run raft status --study <study>` |
 | check that the agent tools are installed and logged in | `uv run raft doctor` |
+| look up a paper (Paperraft's brief and what this lab has) | `uv run raft paper <arxiv id>` |
+| show the user a study, a paper or results | `uv run raft app [--study <study> \| --paper <arxiv id>]` |
 
 These commands start other agents and spend the user's quota. Ask the user before you run any of them:
 `uv run raft prepare` (from an arXiv id to a checker waiting for approval) and `uv run raft bench` (scores an agent
@@ -45,6 +47,7 @@ running on this machine.
 - Never commit PDFs; `papers/` is gitignored. Fetch arXiv papers only through `raft new --arxiv` (official
   endpoints only), never from mirrors.
 - Never edit a bench `entry.json` by hand. `.raft/` holds this machine's live sessions; never commit it.
+- When the user asks to see results or a paper, open the app for them instead of pasting JSON.
 
 ## Before you finish
 

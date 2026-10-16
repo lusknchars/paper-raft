@@ -38,3 +38,11 @@ def test_every_folder_in_the_layout_exists_or_is_written_by_raft():
     text = (ROOT / "AGENTS.md").read_text().split("## Layout", 1)[1]
     for path in re.findall(r"^- `([a-z/-]+/)`", text, re.M):
         assert (ROOT / path).is_dir() or path == "bench/results/", path
+
+
+def test_agents_are_told_to_open_the_app_for_the_user():
+    text = (ROOT / "AGENTS.md").read_text()
+    assert "uv run raft paper <arxiv id>" in text and "uv run raft app" in text
+    assert "open the app for them instead of pasting JSON" in text
+    skill = (ROOT / "adapters" / "claude-code" / ".claude" / "skills" / "reproduce-paper" / "SKILL.md").read_text()
+    assert "uv run raft app --study <study>" in skill
