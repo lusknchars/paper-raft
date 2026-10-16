@@ -13,7 +13,7 @@ You turn a paper into `{{study_dir}}/extraction.json`, the list every implemente
 
 Each item has `id` (kebab-case, stable), `kind`, `text` (your plain statement), `page` (the printed page number, or the PDF page for preprints without one), `quote` (a short verbatim excerpt, 30 words at most) and `missing: false`.
 
-**Gaps:** when an implementer would need a detail the paper does not give (a convergence tolerance, an initial condition, a definition left to another paper, a dataset that is not named), add an item with `missing: true`, the page where the detail belongs, `quote: ""`, and an `assumption` giving the default you recommend and why. Never fill a gap silently inside `text`.
+**Gaps:** when an implementer would need a detail the paper does not give (a convergence tolerance, an initial condition, a definition left to another paper, a dataset that is not named), add an item with `missing: true`, the page where the detail belongs, `quote: ""`, and an `assumption` giving the default you recommend and why. Never fill a gap silently inside `text`. Write `text` and `assumption` in plain words about the paper: the authors may read `text` and `assumption` (`raft gaps` turns them into questions), so keep internal notes, history and code names out.
 
 **Author answers:** if this brief ends with an **Author answers** section, those details are no longer missing: write each as `missing: false`, with the page of the gap it answers, `quote: ""` and the `answer` reference given there.
 

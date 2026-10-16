@@ -42,7 +42,7 @@ KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out"
          "--assets", "--port", "--no-open", "--agent", "--model", "--oss", "--setup", "--methods", "--label", "--cmd",
          "--run-timeout", "--verify", "--table", "--force", "--arxiv", "--id", "--brief", "--round", "--without-attacks", "--attacker", "--attacker-model", "--attacker-cmd",
          "--rounds", "--watch", "--letter", "--mark-asked", "--answer", "--decline", "--blocks", "--from", "--by",
-         "--source", "--publish", "--private", "--note"}
+         "--source", "--publish", "--private", "--note", "--reword"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -231,12 +231,14 @@ def main(argv: list[str] | None = None) -> int:
     g = sub.add_parser("gaps", help="questions to the authors for what the paper leaves out, and their answers")
     g.add_argument("--study")
     g.add_argument("--all-studies", action="store_true")
-    g.add_argument("--validate", action="store_true")
-    g.add_argument("--blocks", nargs=2, metavar=("ID", "CHECK"), help="name the check a missing detail keeps out of the grader")
-    g.add_argument("--letter", action="store_true", help="print a letter to the authors (changes nothing)")
-    g.add_argument("--mark-asked", action="store_true", help="record that the letter's questions were sent today (owner only)")
-    g.add_argument("--answer", metavar="ID", help="record an author's answer (owner only; with --publish or --private)")
-    g.add_argument("--decline", metavar="ID", help="record that the author can't share it (owner only)")
+    ga = g.add_mutually_exclusive_group()  # one action per call: a reply is never recorded alongside another
+    ga.add_argument("--validate", action="store_true")
+    ga.add_argument("--reword", nargs=2, metavar=("ID", "QUESTION"), help="put an open question in plain words before it is sent")
+    ga.add_argument("--blocks", nargs=2, metavar=("ID", "CHECK"), help="name the check a missing detail keeps out of the grader")
+    ga.add_argument("--letter", action="store_true", help="print a letter to the authors (changes nothing)")
+    ga.add_argument("--mark-asked", action="store_true", help="record that the letter's questions were sent today (owner only)")
+    ga.add_argument("--answer", metavar="ID", help="record an author's answer (owner only; with --publish or --private)")
+    ga.add_argument("--decline", metavar="ID", help="record that the author can't share it (owner only)")
     g.add_argument("--from", dest="answer_file", help="with --answer --publish: a file holding the author's answer")
     g.add_argument("--by", help="who answered")
     g.add_argument("--source", help="where the answer came from, e.g. \"email, 2026-10-20\"")
@@ -351,10 +353,14 @@ def main(argv: list[str] | None = None) -> int:
             return _report(problems, f"gaps.json valid in {len(targets)} stud{'y' if len(targets) == 1 else 'ies'}")
         if args.all_studies:
             p.error("gaps --all-studies works only with --validate")
-        if not args.study and not (args.blocks or args.letter or args.mark_asked or args.answer or args.decline):
+        if not args.study and not (args.blocks or args.reword or args.letter or args.mark_asked or args.answer or args.decline):
             print(gaps.summary_text(root))
             return 0
         study = paths.resolve_study(root, args.study)
+        if args.reword:
+            gaps.reword(root, study, *args.reword)
+            print(f"✓ {args.reword[0]}: reworded")
+            return 0
         if args.letter:
             from . import compare
             print(gaps.letter(root, study, compare.repo_url(root)))

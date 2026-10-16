@@ -85,7 +85,7 @@ def test_nothing_to_ask(study):
     for g in data["gaps"]:
         g.update(status="declined", answer={"by": "a", "source": "b", "recorded_on": "2026-10-20"})
     gaps.save(study, data)
-    with pytest.raises(SystemExit, match="no unanswered gaps"):
+    with pytest.raises(SystemExit, match="no open gaps left to ask"):
         gaps.letter(study.parents[1], "tiny")
 
 

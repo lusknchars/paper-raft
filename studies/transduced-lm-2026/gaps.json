@@ -5,9 +5,10 @@
       "id": "predicate-implementation",
       "page": 3,
       "kind": "method",
-      "question": "The paper evaluates the predicates by lazy determinization of the finite-state transducer, following Snæbjarnarson et al. (2026), and gives no further detail. How is this done? We assumed: Do not build a transducer: call setup.transducer.is_live / is_member / is_cylinder (problem/setup.py, CodonTransducer). There is_cylinder == is_member because the codon output only grows, so in this setup no remainder entries ever arise (member implies cylinder) and R stays empty. Is that right?",
+      "question": "Section 3 evaluates the predicates by lazy determinization of the transducer, following Snæbjarnarson et al. (2026), without further detail. How do you compute the live, member and cylinder tests in practice? We computed them directly from the codon map: an output is a member when it starts with the target, and every member is also a cylinder because the codon output only grows. Is that right?",
       "assumption": "Do not build a transducer: call setup.transducer.is_live / is_member / is_cylinder (problem/setup.py, CodonTransducer). There is_cylinder == is_member because the codon output only grows, so in this setup no remainder entries ever arise (member implies cylinder) and R stays empty.",
-      "status": "open"
+      "status": "open",
+      "reworded": true
     },
     {
       "id": "prune-sort-ties",
@@ -29,9 +30,10 @@
       "id": "smc-simple-cylinder-completion",
       "page": 20,
       "kind": "method",
-      "question": "Fig. 10 stops a particle only when it samples EOS; it has no cylinder check. In the worst case of setup.py the source never emits EOS (UNIFORM has p(EOS|x) = 0 everywhere), so q(EOS|x) = 0, the weight stays constant once the prefix covers y, the tail roulette never fires, and smc_simple as written never halts. The paper's App. E source instead puts all mass on strings of length exactly 3T. How is this done? We assumed: Follow Fig. 10 as written: no cylinder shortcut. Particles stop only by sampling EOS. Both sources in setup.py stop with probability one (bigram: 0.02 after each base; worst case: exactly at length 300, as in App. E), so smc_simple halts without it. Adding the shortcut would turn smc_simple into smc_rb. (Updated by the controller after the yardstick review: setup.UNIFORM now stops at 300.). Is that right?",
+      "question": "Fig. 10 stops a particle only when it samples EOS, with no cylinder check. Is that intended, so that smc_simple walks every particle to the end of its string? We followed Fig. 10 as written, with sources that stop with probability one (the App. E source stops after exactly 3T symbols). Is that right?",
       "assumption": "Follow Fig. 10 as written: no cylinder shortcut. Particles stop only by sampling EOS. Both sources in setup.py stop with probability one (bigram: 0.02 after each base; worst case: exactly at length 300, as in App. E), so smc_simple halts without it. Adding the shortcut would turn smc_simple into smc_rb. (Updated by the controller after the yardstick review: setup.UNIFORM now stops at 300.)",
-      "status": "open"
+      "status": "open",
+      "reworded": true
     },
     {
       "id": "tail-roulette-for-beam-summing",
@@ -45,10 +47,11 @@
       "id": "m-grid-fig9a",
       "page": 14,
       "kind": "parameter",
-      "question": "The text does not list the particle budgets plotted in Fig. 9(a); the axis is labelled 'particle budget M' with ticks 16, 64, 256, 1024 and roughly eight points per curve (apparently powers of two from 16 to about 2048). What did you use? We assumed: Use setup.m_values = (16, 64, 256): three points inside the plotted range including the Table 2 value M = 256. Enough to test that error falls with M. Is that right?",
+      "question": "The text does not list the particle budgets M plotted in Fig. 9(a); the axis has ticks at 16, 64, 256 and 1024 and about eight points per curve. Which values of M did you use? We assumed powers of two from 16 upward and ran M = 16, 64 and 256, which includes Table 2's M = 256. Is that right?",
       "assumption": "Use setup.m_values = (16, 64, 256): three points inside the plotted range including the Table 2 value M = 256. Enough to test that error falls with M.",
       "status": "open",
-      "blocks": "Checking the whole Fig. 9(a) curves: today only M = 16, 64 and 256 are run."
+      "blocks": "Checking the whole Fig. 9(a) curves: today only M = 16, 64 and 256 are run.",
+      "reworded": true
     },
     {
       "id": "m-meaning-per-method",
@@ -62,9 +65,10 @@
       "id": "rng-and-seeds",
       "page": 11,
       "kind": "parameter",
-      "question": "The paper reports results over S seeds (8 for Table 2, 64 for Fig. 9a) but does not describe its random number generator, how seeds map to runs, or whether runs for different M or targets share randomness. What did you use? We assumed: One independent run per (target i, M index j, seed k) drawing all randomness from setup.rng(i, j, k) (numpy default_rng([seed, i, j])). Deterministic methods (beam_summing) fill every seed slot with the same value. For systematic sampling draw the permutation and u from that generator; for Bernoulli/categorical draws likewise. Is that right?",
+      "question": "Results are averaged over S seeds (8 for Table 2, 64 for Fig. 9(a)), but the paper does not say how seeds map to runs, or whether runs for different M or targets share random numbers. How did you seed the runs? We used one independent random stream per target, per M and per seed. Is that right?",
       "assumption": "One independent run per (target i, M index j, seed k) drawing all randomness from setup.rng(i, j, k) (numpy default_rng([seed, i, j])). Deterministic methods (beam_summing) fill every seed slot with the same value. For systematic sampling draw the permutation and u from that generator; for Bernoulli/categorical draws likewise.",
-      "status": "open"
+      "status": "open",
+      "reworded": true
     },
     {
       "id": "empty-pool-handling",
@@ -78,10 +82,11 @@
       "id": "dna-training-corpus",
       "page": 14,
       "kind": "parameter",
-      "question": "The DNA bigram source p_bigram for f_dna2aa is trained on 'the DNA training corpus', which is not named, and its probabilities (including stop probabilities) are not given. p_dna is a GPT-2 model trained on human DNA (Snæbjarnarson et al. 2026). What did you use? We assumed: Use setup.BIGRAM, a hand-set high-entropy, A/T-rich, CpG-depleted bigram over ACGT with start row (.30,.20,.20,.30, no stop) and stop probability 0.02 after every base (high enough that smc_simple, which walks each particle to EOS, fits the time budget). It is a stand-in, so Table 2's DNA numbers are not reproducible; we test the claims (unbiased, error falls with M, beam_summing is a lower bound). p_dna (GPT-2 on DNA) is not covered. Is that right?",
+      "question": "The DNA bigram source behind f_dna2aa is trained on 'the DNA training corpus', which is not named, and its probabilities (including the stop probability) are not given. Which corpus trained the bigram, and could you share its fitted probabilities? We used a hand-set stand-in over ACGT with stop probability 0.02 after each base, so we can test the paper's claims but not its Table 2 numbers. Is that a reasonable stand-in?",
       "assumption": "Use setup.BIGRAM, a hand-set high-entropy, A/T-rich, CpG-depleted bigram over ACGT with start row (.30,.20,.20,.30, no stop) and stop probability 0.02 after every base (high enough that smc_simple, which walks each particle to EOS, fits the time budget). It is a stand-in, so Table 2's DNA numbers are not reproducible; we test the claims (unbiased, error falls with M, beam_summing is a lower bound). p_dna (GPT-2 on DNA) is not covered.",
       "status": "open",
-      "blocks": "Grading against Table 2's numbers: a hand-set DNA bigram stands in for the unnamed corpus, so today only the paper's claims are checked."
+      "blocks": "Grading against Table 2's numbers: a hand-set DNA bigram stands in for the unnamed corpus, so today only the paper's claims are checked.",
+      "reworded": true
     },
     {
       "id": "dna-targets",
@@ -96,17 +101,19 @@
       "id": "f-dna2aa-definition",
       "page": 14,
       "kind": "equation",
-      "question": "f_dna2aa maps DNA strings over a four-letter alphabet to amino-acid strings, each amino acid being the image of several codons. The paper does not give the codon table, reading frame, handling of stop codons, or what a trailing partial codon emits. How is this done? We assumed: setup.CodonTransducer: standard genetic code, frame 0, codons read left to right; each complete codon emits one amino acid; the three stop codons (TAA, TAG, TGA) emit '*' and do not terminate the output; a trailing partial codon emits nothing. is_member(x,y) = output(x) starts with y; is_cylinder = is_member; is_live also accepts a partial final codon that some codon for the next target symbol extends. Is that right?",
+      "question": "f_dna2aa maps DNA strings to amino-acid strings, but the paper does not give the codon table, the reading frame, how stop codons are handled, or what a trailing partial codon emits. How is f_dna2aa defined? We assumed the standard genetic code in frame 0, read left to right, with stop codons emitting a stop symbol without ending the output, and a trailing partial codon emitting nothing. Is that right?",
       "assumption": "setup.CodonTransducer: standard genetic code, frame 0, codons read left to right; each complete codon emits one amino acid; the three stop codons (TAA, TAG, TGA) emit '*' and do not terminate the output; a trailing partial codon emits nothing. is_member(x,y) = output(x) starts with y; is_cylinder = is_member; is_live also accepts a partial final codon that some codon for the next target symbol extends.",
-      "status": "open"
+      "status": "open",
+      "reworded": true
     },
     {
       "id": "worst-case-source-stop",
       "page": 30,
       "kind": "parameter",
-      "question": "App. E's source puts all mass on strings of length exactly 3T (so it stops with probability one after 3T symbols), but the paper does not spell out the stop rule as a next-symbol model. What did you use? We assumed: setup.UNIFORM gives 1/4 per base and stops after exactly 300 bases (p(EOS|x) = 1 at length 300, 0 before), matching App. E's p_X(x) = (1/4)^{3T} over strings of length 3T. The worst case also turns the tail roulette off (kappa = 0): the decomposition is finite, so every method halts, and the paper's exactness argument ignores the roulette. setup.py adds a second worst-case target (WORST_MIX) made of amino acids whose codons share their first two bases, where the same argument holds. Is that right?",
+      "question": "App. E's source puts all its mass on strings of length exactly 3T, but the paper does not write its stop rule as a next-symbol model. How should the source stop? We assumed each base has probability 1/4 and the source stops with probability one at length 3T, never before. Is that right?",
       "assumption": "setup.UNIFORM gives 1/4 per base and stops after exactly 300 bases (p(EOS|x) = 1 at length 300, 0 before), matching App. E's p_X(x) = (1/4)^{3T} over strings of length 3T. The worst case also turns the tail roulette off (kappa = 0): the decomposition is finite, so every method halts, and the paper's exactness argument ignores the roulette. setup.py adds a second worst-case target (WORST_MIX) made of amino acids whose codons share their first two bases, where the same argument holds.",
-      "status": "open"
+      "status": "open",
+      "reworded": true
     }
   ]
 }

@@ -76,8 +76,9 @@ def refresh(root: Path, study: str, today: str | None = None) -> dict:
             continue
         g = old.pop(item["id"], None)
         if g is None or g["status"] in ("open", "resolved"):
-            g = {**(g or {}), "id": item["id"], "page": item["page"], "kind": item["kind"], "question": question(item),
-                 "assumption": item["assumption"], "status": "open"}
+            kept = g.get("question") if g and g.get("reworded") else None
+            g = {**(g or {}), "id": item["id"], "page": item["page"], "kind": item["kind"],
+                 "question": kept or question(item), "assumption": item["assumption"], "status": "open"}
             g.pop("resolved_on", None)
         out.append(g)
     for g in old.values():
@@ -156,8 +157,9 @@ def site_url(repo: str | None) -> str | None:
 
 
 def selection(data: dict) -> tuple[list[dict], list[dict], int]:
-    """What the letter asks: every unanswered gap that blocks a check, then the first few others."""
-    waiting = [g for g in data["gaps"] if g["status"] in UNANSWERED]
+    """What the letter asks: every open gap that blocks a check, then the first few others. Asked gaps are not asked
+    again, so a second letter carries the rest and the first asked dates stay."""
+    waiting = [g for g in data["gaps"] if g["status"] == "open"]
     blocking = [g for g in waiting if g.get("blocks")]
     small = [g for g in waiting if not g.get("blocks")]
     return blocking, small[:LETTER_SMALL_CAP], max(0, len(small) - LETTER_SMALL_CAP)
@@ -173,7 +175,7 @@ def letter(root: Path, study: str, repo: str | None = None) -> str:
     data = _need(sd, study)
     blocking, small, more = selection(data)
     if not blocking and not small:
-        raise SystemExit(f"raft: no unanswered gaps in studies/{study}/{FILE}")
+        raise SystemExit(f"raft: no open gaps left to ask in studies/{study}/{FILE}")
     paper = yaml.safe_load((sd / "paper.yaml").read_text()) or {}
     names = [n for n in paper.get("authors") or [] if n]
     site = site_url(repo)
@@ -212,7 +214,7 @@ def mark_asked(root: Path, study: str, today: str | None = None) -> list[str]:
     data = _need(sd, study)
     blocking, small, _ = selection(data)
     if not blocking and not small:
-        raise SystemExit(f"raft: no unanswered gaps in studies/{study}/{FILE}")
+        raise SystemExit(f"raft: no open gaps left to ask in studies/{study}/{FILE}")
     today = today or _today()
     for g in blocking + small:
         g["status"], g["asked_on"] = "asked", today
@@ -279,6 +281,22 @@ def prepare_line(root: Path, study: str) -> str:
     if not c["gaps"]:
         return "• no gaps: the extraction flags nothing missing"
     return f"• {c['gaps']} gaps ({c['blocking']} blocking a stricter check): uv run raft gaps --study {study}"
+
+
+
+def reword(root: Path, study: str, gid: str, text: str) -> dict:
+    """Put an open question in plain words for the authors before it is sent. Refresh keeps the new words; a question
+    already asked stays exactly as it was sent."""
+    if not text.strip():
+        raise SystemExit("raft: --reword needs the new question")
+    sd = _study_dir(root, study)
+    data = _need(sd, study)
+    g = _entry(data, gid, study)
+    if g["status"] != "open":
+        raise SystemExit(f"raft: {gid!r} is already {g['status']}; a question already asked stays as it was sent")
+    g["question"], g["reworded"] = text.strip(), True
+    save(sd, data)
+    return g
 
 
 def counts(data: dict) -> dict:

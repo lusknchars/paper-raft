@@ -19,6 +19,7 @@
           "question": {"type": "string", "minLength": 1},
           "assumption": {"type": "string", "minLength": 1},
           "blocks": {"type": "string", "minLength": 1},
+          "reworded": {"type": "boolean"},
           "status": {"enum": ["open", "asked", "answered", "answered_private", "declined", "resolved"]},
           "asked_on": {"$ref": "#/$defs/date"},
           "resolved_on": {"$ref": "#/$defs/date"},
