@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Gaps: questions to a paper's authors for the details it leaves out, and their answers",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["study", "gaps"],
+  "properties": {
+    "study": {"type": "string", "minLength": 1},
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "page", "kind", "question", "assumption", "status"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "page": {"type": "integer", "minimum": 1},
+          "kind": {"enum": ["method", "equation", "parameter", "boundary_condition", "result"]},
+          "question": {"type": "string", "minLength": 1},
+          "assumption": {"type": "string", "minLength": 1},
+          "blocks": {"type": "string", "minLength": 1},
+          "status": {"enum": ["open", "asked", "answered", "answered_private", "declined", "resolved"]},
+          "asked_on": {"$ref": "#/$defs/date"},
+          "resolved_on": {"$ref": "#/$defs/date"},
+          "answer": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["by", "source", "recorded_on"],
+            "properties": {
+              "text": {"type": "string", "minLength": 1},
+              "by": {"type": "string", "minLength": 1},
+              "source": {"type": "string", "minLength": 1},
+              "recorded_on": {"$ref": "#/$defs/date"},
+              "note": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "allOf": [
+          {"if": {"properties": {"status": {"const": "asked"}}}, "then": {"required": ["asked_on"]}},
+          {"if": {"properties": {"status": {"const": "resolved"}}}, "then": {"required": ["resolved_on"]}},
+          {"if": {"properties": {"status": {"const": "answered"}}},
+           "then": {"required": ["answer"], "properties": {"answer": {"required": ["text"]}}}},
+          {"if": {"properties": {"status": {"enum": ["answered_private", "declined"]}}},
+           "then": {"required": ["answer"], "properties": {"answer": {"not": {"required": ["text"]}}}}}
+        ]
+      }
+    }
+  },
+  "$defs": {"date": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"}}
+}

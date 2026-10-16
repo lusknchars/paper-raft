@@ -83,6 +83,16 @@ VALID = {
                    "stderr_tail": None}],
         "results": {}, "message": None, "next": None,
     },
+    "gaps": {
+        "study": "s",
+        "gaps": [
+            {"id": "corpus", "page": 14, "kind": "parameter", "question": "Which corpus? We assumed: X. Is that right?",
+             "assumption": "X", "status": "asked", "asked_on": "2026-10-17", "blocks": "Table 2"},
+            {"id": "ties", "page": 4, "kind": "method", "question": "How are ties broken?", "assumption": "stable",
+             "status": "answered_private",
+             "answer": {"by": "A. Author", "source": "email", "recorded_on": "2026-10-20", "note": "it matched"}},
+        ],
+    },
 }
 
 

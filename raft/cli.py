@@ -41,7 +41,8 @@ def _params(rest: list[str]) -> dict:
 KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out", "--title", "--doi", "--help", "-h",
          "--assets", "--port", "--no-open", "--agent", "--model", "--oss", "--setup", "--methods", "--label", "--cmd",
          "--run-timeout", "--verify", "--table", "--force", "--arxiv", "--id", "--brief", "--round", "--without-attacks", "--attacker", "--attacker-model", "--attacker-cmd",
-         "--rounds", "--watch"}
+         "--rounds", "--watch", "--letter", "--mark-asked", "--answer", "--decline", "--blocks", "--from", "--by",
+         "--source", "--publish", "--private", "--note"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -226,6 +227,11 @@ def main(argv: list[str] | None = None) -> int:
     pr.add_argument("--timeout", type=_duration, default=2700.0, help="per agent step (default 45m)")
     pr.add_argument("--run-timeout", type=_duration, default=1800.0)
     pr.add_argument("--rounds", type=int, default=3)
+    g = sub.add_parser("gaps", help="questions to the authors for what the paper leaves out, and their answers")
+    g.add_argument("--study")
+    g.add_argument("--all-studies", action="store_true")
+    g.add_argument("--validate", action="store_true")
+    g.add_argument("--blocks", nargs=2, metavar=("ID", "CHECK"), help="name the check a missing detail keeps out of the grader")
     keep, rest = _split(sys.argv[1:] if argv is None else argv)
     args = p.parse_args(keep)
     if rest and args.cmd not in ("run", "repro"):
@@ -312,6 +318,26 @@ def main(argv: list[str] | None = None) -> int:
         study = paths.resolve_study(root, args.study)
         path = checker.approve(root, study, without_attacks=args.without_attacks, run_timeout=args.run_timeout)
         print(f"✓ approved: {path.relative_to(root)}. Commit it; runs and bench now work on {study}.")
+        return 0
+
+    if args.cmd == "gaps":
+        from . import gaps
+        if args.validate:
+            targets = paths.studies(root) if args.all_studies else [paths.resolve_study(root, args.study)]
+            problems = [x for s in targets for x in gaps.validate(root / "studies" / s)]
+            return _report(problems, f"gaps.json valid in {len(targets)} stud{'y' if len(targets) == 1 else 'ies'}")
+        if args.all_studies:
+            p.error("gaps --all-studies works only with --validate")
+        if not args.study and not args.blocks:
+            print(gaps.summary_text(root))
+            return 0
+        study = paths.resolve_study(root, args.study)
+        if args.blocks:
+            gid, text = args.blocks
+            gaps.set_blocks(root, study, gid, text)
+            print(f"✓ {study}/{gid}: blocks: {text}")
+            return 0
+        print(gaps.listing(gaps.refresh(root, study), study))
         return 0
 
     if args.cmd == "prepare":
