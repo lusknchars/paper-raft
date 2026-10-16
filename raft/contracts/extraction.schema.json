@@ -21,7 +21,8 @@
           "page": {"type": "integer", "minimum": 1},
           "quote": {"type": "string"},
           "missing": {"type": "boolean"},
-          "assumption": {"type": "string", "minLength": 1}
+          "assumption": {"type": "string", "minLength": 1},
+          "answer": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*/gaps\\.json#[a-z0-9][a-z0-9-]*$"}
         },
         "if": {"properties": {"missing": {"const": true}}},
         "then": {"required": ["assumption"]}

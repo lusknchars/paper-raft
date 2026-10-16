@@ -44,3 +44,16 @@ def new_study(root: Path, study_id: str, title: str, doi: str) -> Path:
     (d / "problem" / "reference.json").write_text(json.dumps(
         {"citation": title, "doi": doi, "tolerance": 0.01, "cases": {}}, indent=2) + "\n")
     return d
+
+
+def new_version(root: Path, source: str, new_id: str) -> Path:
+    """A stricter version of a study: same paper, fresh problem/ stubs, nothing from the source's checker or runs.
+    Its extractor brief carries the source's published author answers."""
+    src = Path(root) / "studies" / source
+    if not (src / "paper.yaml").is_file():
+        raise SystemExit(f"raft: unknown study {source!r}")
+    paper = yaml.safe_load((src / "paper.yaml").read_text()) or {}
+    d = new_study(root, new_id, paper.get("title") or source, paper.get("doi") or "")
+    paper.update(version_of=source, draft=True)
+    (d / "paper.yaml").write_text(yaml.safe_dump(paper, sort_keys=False, allow_unicode=True))
+    return d

@@ -13,4 +13,7 @@ def render(root: Path, role: str, study: str, method: str = "") -> str:
     text = path.read_text()
     for key, value in values.items():
         text = text.replace("{{" + key + "}}", value)
+    if role == "extractor" and paper.get("version_of"):
+        from . import gaps
+        text += gaps.answers_section(root, paper["version_of"])
     return text

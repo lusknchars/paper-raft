@@ -159,6 +159,7 @@ def main(argv: list[str] | None = None) -> int:
     n.add_argument("--arxiv", help="fetch the record and PDF from arXiv, e.g. 2608.27428")
     n.add_argument("--id", dest="new_id", help="with --arxiv: the study id (default: surname-year-word)")
     n.add_argument("--brief", help="with --arxiv: the paper's Paperraft brief URL")
+    n.add_argument("--from", dest="from_study", help="start a stricter version of this study, using its published author answers")
     e = sub.add_parser("extract", parents=[common], help="print the extractor brief, or --validate extraction.json")
     e.add_argument("--validate", action="store_true")
     im = sub.add_parser("implement", parents=[common], help="print the implementer brief for one method")
@@ -249,6 +250,18 @@ def main(argv: list[str] | None = None) -> int:
     root = paths.repo_root()
 
     if args.cmd == "new":
+        if args.from_study:
+            new_id = args.new_id or args.study_id
+            if not new_id:
+                p.error("new --from needs --id <new study id>")
+            from . import gaps
+            d = scaffold.new_version(root, args.from_study, new_id)
+            k = len(gaps.published(root / "studies" / args.from_study))
+            print(f"✓ created {d.relative_to(root)} as a draft version of {args.from_study}, with fresh problem/ "
+                  f"stubs. Its extractor gets {k} published answer{'' if k == 1 else 's'} from "
+                  f"studies/{args.from_study}/gaps.json. Next: `uv run raft prepare --study {new_id} --agent "
+                  "<claude-code|codex>`")
+            return 0
         if args.arxiv:
             from . import arxiv
             d = arxiv.intake(root, args.arxiv, study_id=args.new_id or args.study_id, brief=args.brief,

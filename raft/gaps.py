@@ -254,6 +254,25 @@ def decline(root: Path, study: str, gid: str, *, by: str, source: str, today: st
     save(sd, data)
     return g
 
+def published(sd: Path) -> list[dict]:
+    data = load(sd)
+    return [g for g in data["gaps"] if g["status"] == "answered"] if data else []
+
+
+def answers_section(root: Path, source: str) -> str:
+    gs = published(_study_dir(root, source))
+    if not gs:
+        return ""
+    lines = ["", f"**Author answers.** This study is a stricter version of `studies/{source}`. Its authors answered "
+                 f"these gaps (`studies/{source}/{FILE}`). Write each as not missing, with the paper's page, `quote: \"\"` "
+                 "and the `answer` reference shown, and use the answer instead of the old assumption:", ""]
+    for g in gs:
+        a = g["answer"]
+        lines.append(f"- `{g['id']}` (p. {g['page']}), answered by {a['by']} ({a['source']}): {a['text']} "
+                     f"→ `\"answer\": \"{source}/{FILE}#{g['id']}\"`")
+    return "\n".join(lines) + "\n"
+
+
 def counts(data: dict) -> dict:
     c = Counter(g["status"] for g in data["gaps"])
     return {"gaps": len(data["gaps"]) - c["resolved"], **{s: c[s] for s in STATUSES},

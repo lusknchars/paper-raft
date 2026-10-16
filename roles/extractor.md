@@ -15,6 +15,8 @@ Each item has `id` (kebab-case, stable), `kind`, `text` (your plain statement), 
 
 **Gaps:** when an implementer would need a detail the paper does not give (a convergence tolerance, an initial condition, a definition left to another paper, a dataset that is not named), add an item with `missing: true`, the page where the detail belongs, `quote: ""`, and an `assumption` giving the default you recommend and why. Never fill a gap silently inside `text`.
 
+**Author answers:** if this brief ends with an **Author answers** section, those details are no longer missing: write each as `missing: false`, with the page of the gap it answers, `quote: ""` and the `answer` reference given there.
+
 **Reference check:** compare `{{study_dir}}/problem/reference.json` with the paper's tables number by number. Fill in its page fields (any key named `page` or `page_*`) and set `verified_against_pdf: true` only if every number matches. List every mismatch in your final message, and do not change any reference value without listing it.
 
 Set `extractor_agent` to an identifier of yourself (`tool:role`, e.g. `claude-code:raft-extractor`).
