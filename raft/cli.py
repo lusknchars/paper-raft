@@ -234,6 +234,14 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--blocks", nargs=2, metavar=("ID", "CHECK"), help="name the check a missing detail keeps out of the grader")
     g.add_argument("--letter", action="store_true", help="print a letter to the authors (changes nothing)")
     g.add_argument("--mark-asked", action="store_true", help="record that the letter's questions were sent today (owner only)")
+    g.add_argument("--answer", metavar="ID", help="record an author's answer (owner only; with --publish or --private)")
+    g.add_argument("--decline", metavar="ID", help="record that the author can't share it (owner only)")
+    g.add_argument("--from", dest="answer_file", help="with --answer --publish: a file holding the author's answer")
+    g.add_argument("--by", help="who answered")
+    g.add_argument("--source", help="where the answer came from, e.g. \"email, 2026-10-20\"")
+    g.add_argument("--publish", action="store_true", help="the author agreed to publication")
+    g.add_argument("--private", action="store_true", help="the author did not agree; only who, where and when are kept")
+    g.add_argument("--note", help="with --private: your own words on what the answer told you (published)")
     keep, rest = _split(sys.argv[1:] if argv is None else argv)
     args = p.parse_args(keep)
     if rest and args.cmd not in ("run", "repro"):
@@ -330,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
             return _report(problems, f"gaps.json valid in {len(targets)} stud{'y' if len(targets) == 1 else 'ies'}")
         if args.all_studies:
             p.error("gaps --all-studies works only with --validate")
-        if not args.study and not (args.blocks or args.letter or args.mark_asked):
+        if not args.study and not (args.blocks or args.letter or args.mark_asked or args.answer or args.decline):
             print(gaps.summary_text(root))
             return 0
         study = paths.resolve_study(root, args.study)
@@ -346,6 +354,20 @@ def main(argv: list[str] | None = None) -> int:
             gid, text = args.blocks
             gaps.set_blocks(root, study, gid, text)
             print(f"✓ {study}/{gid}: blocks: {text}")
+            return 0
+        if args.answer or args.decline:
+            if not (args.by and args.source):
+                p.error("--answer and --decline need --by and --source")
+            if args.decline:
+                gaps.decline(root, study, args.decline, by=args.by, source=args.source)
+                print(f"✓ {args.decline}: declined")
+                return 0
+            if args.publish == args.private:
+                p.error("--answer needs exactly one of --publish or --private")
+            text = Path(args.answer_file).read_text() if args.answer_file else None
+            g_ = gaps.answer(root, study, args.answer, by=args.by, source=args.source, publish=args.publish,
+                             text=text, note=args.note)
+            print(f"✓ {args.answer}: {g_['status'].replace('_', ' ')}. Commit studies/{study}/gaps.json.")
             return 0
         print(gaps.listing(gaps.refresh(root, study), study))
         return 0

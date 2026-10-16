@@ -219,6 +219,41 @@ def mark_asked(root: Path, study: str, today: str | None = None) -> list[str]:
     save(sd, data)
     return [g["id"] for g in blocking + small]
 
+def _reply(root: Path, study: str, gid: str, what: str):
+    _owner_only(what)
+    sd = _study_dir(root, study)
+    data = _need(sd, study)
+    g = _entry(data, gid, study)
+    if g["status"] not in UNANSWERED:
+        raise SystemExit(f"raft: {gid!r} is already {g['status']}; correct studies/{study}/{FILE} by hand if needed")
+    return sd, data, g
+
+
+def answer(root: Path, study: str, gid: str, *, by: str, source: str, publish: bool, text: str | None = None,
+           note: str | None = None, today: str | None = None) -> dict:
+    """Record an author's answer. Published answers keep their text; private ones never do."""
+    text = text.strip() if text else None
+    if publish and not text:
+        raise SystemExit("raft: --publish needs --from <file> holding the author's answer")
+    if not publish and text:
+        raise SystemExit("raft: --private stores no answer text; drop --from (use --note for your own words)")
+    if publish and note:
+        raise SystemExit("raft: --note goes with --private; a published answer speaks for itself")
+    sd, data, g = _reply(root, study, gid, "--answer")
+    g["status"] = "answered" if publish else "answered_private"
+    g["answer"] = {**({"text": text} if publish else {}), "by": by.strip(), "source": source.strip(),
+                   "recorded_on": today or _today(), **({"note": note.strip()} if note else {})}
+    save(sd, data)
+    return g
+
+
+def decline(root: Path, study: str, gid: str, *, by: str, source: str, today: str | None = None) -> dict:
+    sd, data, g = _reply(root, study, gid, "--decline")
+    g["status"] = "declined"
+    g["answer"] = {"by": by.strip(), "source": source.strip(), "recorded_on": today or _today()}
+    save(sd, data)
+    return g
+
 def counts(data: dict) -> dict:
     c = Counter(g["status"] for g in data["gaps"])
     return {"gaps": len(data["gaps"]) - c["resolved"], **{s: c[s] for s in STATUSES},
