@@ -1,4 +1,7 @@
+import re
 from pathlib import Path
+
+import pytest
 
 from raft import cli, guard
 
@@ -37,3 +40,16 @@ def test_cli_prints_briefs(tiny_git_study, monkeypatch, capsys):
     assert capsys.readouterr().out.startswith("# checker-builder for tiny")
     assert cli.main(["attack", "--round", "2"]) == 0
     assert capsys.readouterr().out.startswith("# checker-attacker for tiny")
+
+
+FLAGGED = re.compile(r"\b(attack|break|exploit|cheat|hack)\w*", re.I)
+
+
+def _prose(text: str) -> str:
+    return re.sub(r"`[^`]*`", "", text)  # file names and commands in backticks stay as they are
+
+
+@pytest.mark.parametrize("role", ["checker-attacker", "checker-builder"])
+def test_the_grader_briefs_avoid_words_that_trip_content_filters(role):
+    found = FLAGGED.findall(_prose((ROOT / "roles" / f"{role}.md").read_text()))
+    assert not found, found
