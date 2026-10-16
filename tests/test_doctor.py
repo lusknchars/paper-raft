@@ -103,7 +103,7 @@ def test_preflight_stops_and_names_the_other_tool(tmp_path, monkeypatch):
     msg = str(e.value)
     assert msg.startswith("raft: a tool check failed before any step ran")
     assert "Codex's shell tool is failing" in msg and "Or switch to Claude Code (installed and logged in)." in msg
-    assert lines and lines[0].startswith("✗ ")
+    assert any(x.startswith("✗ ") for x in lines)
 
 
 def test_prepare_runs_the_preflight(env, monkeypatch):  # noqa: F811

@@ -68,7 +68,7 @@ def try_tool(agent: str, model=None, oss: bool = False, timeout: float = 120.0) 
     return None if r["exit"] == 0 and ran and said else "did not run `echo raft-ok` and reply raft-ok"
 
 
-def _check(root: Path, agent: str, model, oss: bool, try_: bool, timeout: float, now) -> Check:
+def _check(root: Path, agent: str, model, oss: bool, try_: bool, timeout: float, now, log) -> Check:
     name, exe = agents.NAMES[agent], agents.EXE[agent]
     if shutil.which(exe) is None:
         return Check(agent, False, f"{name}: `{exe}` is not installed or not on PATH")
@@ -87,6 +87,8 @@ def _check(root: Path, agent: str, model, oss: bool, try_: bool, timeout: float,
         fresh = False
     if fresh:
         return Check(agent, True, f"{name}: {ver}, {who}, did the test task at {when[:16].replace('T', ' ')}")
+    if log:
+        log(f"• testing {name} with a trivial task (uses a few cents of your quota; remembered for 12 hours)")
     why = try_tool(agent, model, oss, timeout)
     if why:
         return Check(agent, False, f"{name}: {ver}, {who}, but {why}")
@@ -95,20 +97,20 @@ def _check(root: Path, agent: str, model, oss: bool, try_: bool, timeout: float,
     return Check(agent, True, f"{name}: {ver}, {who}, did the test task")
 
 
-def check_tools(root, tools, *, try_: bool = True, try_timeout: float = 120.0, now=None) -> list[Check]:
+def check_tools(root, tools, *, try_: bool = True, try_timeout: float = 120.0, now=None, log=None) -> list[Check]:
     now = now or datetime.now(timezone.utc)
     seen, out = set(), []
     for agent, model, oss in tools:
         if agent not in agents.EXE or (agent, model, oss) in seen:
             continue
         seen.add((agent, model, oss))
-        out.append(_check(Path(root), agent, model, bool(oss), try_, try_timeout, now))
+        out.append(_check(Path(root), agent, model, bool(oss), try_, try_timeout, now, log))
     return out
 
 
 def preflight(root, tools, *, try_: bool, log, now=None) -> None:
     """Before any agent step: stop with the reason (and a tool that would work) if a tool can't do the job."""
-    checks = check_tools(root, tools, try_=try_, now=now)
+    checks = check_tools(root, tools, try_=try_, now=now, log=log)
     for c in checks:
         log(("✓ " if c.ok else "✗ ") + c.line)
     bad = [c for c in checks if not c.ok]

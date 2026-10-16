@@ -61,7 +61,7 @@ def diagnose(agent: str, text: str, stderr: str, exit_code) -> "Problem | None":
         if CODE_MODE in line:
             return Problem("tool-broken", agent, _cut(line),
                            f"Update or restart {t}, then check it with `uv run raft doctor --agent {agent} --try`.")
-    events = list(_events(text))
+    events = list(_events(text)) if exit_code is not None else []  # a timeout is reported as a timeout
     if agent == "codex":
         bad = [i for i, e in enumerate(events) if e.get("type") in ("error", "turn.failed")]
         if bad and not any(e.get("type") == "turn.completed" for e in events[bad[-1] + 1:]):

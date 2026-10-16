@@ -260,7 +260,7 @@ def _prepare_steps(root: Path, sd: Path, study: str, ls: "live.Session", *, agen
         ls.add_total(1)
         fid = f"fix-{rnd}"
         text = _with_problems(briefs.render(root, "checker-builder", study),
-                              "Attacks or checks that got through; fix problem/ so they fail", holes)
+                              "Decoys or checks that passed the grader; fix problem/ so they fail", holes)
         done = _step(root, sd, "build", text, agent, model, cmd, timeout, log, ls, fid,
                      f"Fix checker after round {rnd}", "builder")
         holes = checker.validate(root, study, run_timeout, log=lambda s: None)

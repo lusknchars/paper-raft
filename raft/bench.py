@@ -245,7 +245,10 @@ def redact(data: bytes) -> bytes:
     home = os.path.expanduser("~").rstrip("/")
     if not home.startswith("/"):
         return data
-    return re.sub(re.escape(home.encode()) + rb"(?=[/\"'\s\\]|$)", b"~", data)
+    end = rb"(?![A-Za-z0-9_-]|\.[A-Za-z0-9_-])"  # not part of a longer name; punctuation after it is fine
+    for form in (home, home.replace("/", "\\/")):  # plain, and JSON's optional escaped slashes
+        data = re.sub(re.escape(form.encode()) + end, b"~", data)
+    return data
 
 
 def redact_file(path: Path) -> bool:
