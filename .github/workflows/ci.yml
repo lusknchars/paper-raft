@@ -30,6 +30,7 @@ jobs:
       - run: node scripts/check_flow.mjs site
       - run: node scripts/check_bench.mjs site
       - run: node scripts/check_gaps.mjs site
+      - run: node scripts/check_app.mjs
       - run: node scripts/check_live.mjs
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'

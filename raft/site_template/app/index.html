@@ -1,1 +1,34 @@
-<!doctype html><title>Paper Raft</title><script type="module" src="/app/app.js"></script>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paper Raft</title>
+  <link rel="stylesheet" href="/flow/flow.css">
+  <link rel="stylesheet" href="/flow/live.css">
+  <link rel="stylesheet" href="/app/app.css">
+  <script type="importmap">
+  { "imports": { "three": "/vendor/three-0.186.1/build/three.module.js",
+                 "three/addons/": "/vendor/three-0.186.1/examples/jsm/" } }
+  </script>
+</head>
+<body>
+  <canvas id="field" aria-hidden="true"></canvas>
+  <header class="top">
+    <div class="brand"><a class="mark" href="#/">Paper Raft</a>
+      <a class="family" href="https://paperaft.vercel.app/" target="_blank" rel="noopener noreferrer">a Paperraft lab</a></div>
+    <nav class="nav" aria-label="Sections">
+      <a href="#/" data-nav="">Studies</a><a href="#/running" data-nav="running">Running</a>
+      <a href="#/bench" data-nav="bench">Bench</a><a href="#/paper" data-nav="paper">Find a paper</a>
+    </nav>
+    <form class="search" id="search" role="search">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" name="q" placeholder="Paste an arXiv id or a Paperraft link" autocomplete="off" aria-label="arXiv id or Paperraft link">
+      <button type="submit">Find</button>
+    </form>
+  </header>
+  <main id="app" tabindex="-1"></main>
+  <script src="/app/field.js"></script>
+  <script type="module" src="/app/app.js"></script>
+</body>
+</html>
