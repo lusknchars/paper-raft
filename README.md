@@ -63,6 +63,20 @@ that, `raft bench` and `raft run` work on the new paper, and they refuse to run 
 attacked and approved again. Step by step instead: `raft new --arxiv`, `raft extract`, `raft build-checker`,
 `raft validate`, `raft attack`, `raft approve`. Graders come from a small library: `raft grader add <checks|table|claims>`.
 
+## Ask the authors
+
+Papers leave things out. The extractor flags each missing detail with the assumption used instead, and `raft gaps`
+turns them into questions for the authors, each with its page:
+
+    uv run raft gaps --study transduced-lm-2026            # the list, kept in studies/<study>/gaps.json
+    uv run raft gaps --study transduced-lm-2026 --letter   # a letter to paste into an email; blocking questions first
+
+Paper Raft never sends anything or looks up an address: you send the letter (`--mark-asked` records that you did).
+Record each reply in your own terminal: `--answer <id> --from reply.txt --by … --source … --publish` (or `--private`,
+which keeps no text), or `--decline <id>`. Agents can't. Only answers the authors agreed to publish are kept and used:
+they go into a stricter version of the study, `uv run raft new --from <study> --id <new-id>`, which is built, attacked
+and approved like any other, while the old study keeps its results. Each study on the site has a **Gaps** page.
+
 ## Flow view
 
 Every study is also drawn as a chain: the paper, the items extracted from it, the methods built from those items,

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from . import agents, bench, briefs, checker, live, schema, validate
+from . import agents, bench, briefs, checker, gaps, live, schema, validate
 
 
 def _transcript(sd: Path, step: str) -> Path:
@@ -147,6 +147,7 @@ def prepare(root: Path, *, agent: str, arxiv: str | None = None, study: str | No
     ls.finish(f"uv run raft approve --study {study}")
     log(f"Ready for your approval. Read studies/{study}/checker/, commit it, then run in your terminal:\n"
         f"  uv run raft approve --study {study}")
+    log(gaps.prepare_line(root, study))
     return study
 
 

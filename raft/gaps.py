@@ -273,6 +273,14 @@ def answers_section(root: Path, source: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def prepare_line(root: Path, study: str) -> str:
+    """The line `raft prepare` prints at the approval step. Refreshes gaps.json on the way."""
+    c = counts(refresh(root, study))
+    if not c["gaps"]:
+        return "• no gaps: the extraction flags nothing missing"
+    return f"• {c['gaps']} gaps ({c['blocking']} blocking a stricter check): uv run raft gaps --study {study}"
+
+
 def counts(data: dict) -> dict:
     c = Counter(g["status"] for g in data["gaps"])
     return {"gaps": len(data["gaps"]) - c["resolved"], **{s: c[s] for s in STATUSES},
