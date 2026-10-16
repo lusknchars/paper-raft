@@ -52,7 +52,11 @@ def arxiv_of(paper: dict) -> str | None:
 
 def find_arxiv(root, arxiv_id: str) -> str | None:
     for s in paths.studies(Path(root), include_drafts=True):
-        if arxiv_of(yaml.safe_load((Path(root) / "studies" / s / "paper.yaml").read_text()) or {}) == arxiv_id:
+        try:
+            paper = yaml.safe_load((Path(root) / "studies" / s / "paper.yaml").read_text()) or {}
+        except (OSError, yaml.YAMLError):
+            continue  # a broken paper.yaml is reported by `raft status`, not here
+        if arxiv_of(paper) == arxiv_id:
             return s
     return None
 

@@ -9,18 +9,24 @@ const port = 9190 + Math.floor(Math.random() * 100);
 const base = `http://127.0.0.1:${port}/app.html`;
 const fail = (m) => { console.error("✗ " + m); process.exitCode = 1; };
 const session = JSON.parse(readFileSync("tests/fixtures/live-sessions.json", "utf8")).find((s) => s.state === "running");
-mkdirSync(".raft/live", { recursive: true });
 const liveFile = `.raft/live/app-check-${process.pid}.json`;
+let server = null, browser = null;
+function cleanup() {  // runs on success, failure and Ctrl-C: never leave a server or a fake session behind
+  try { server?.kill(); } catch { /* already gone */ }
+  rmSync(liveFile, { force: true });
+}
+for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { cleanup(); process.exit(130); });
+mkdirSync(".raft/live", { recursive: true });
 const { id: _id, ...fields } = session;  // the server adds `id` from the file name; the file itself has none
 writeFileSync(liveFile, JSON.stringify({ ...fields, pid: process.pid }));
-const server = spawn("uv", ["run", "raft", "app", "--no-open", "--port", String(port)], { stdio: "ignore" });
+server = spawn("uv", ["run", "raft", "app", "--no-open", "--port", String(port)], { stdio: "ignore" });
 const fixture = readFileSync("tests/fixtures/paperraft-2608.27428.json", "utf8");
 let data = null;
 for (let i = 0; i < 60 && !data; i++) {
   try { const r = await fetch(`http://127.0.0.1:${port}/app.json`); if (r.ok) data = await r.json(); } catch { /* not up yet */ }
   if (!data) await new Promise((r) => setTimeout(r, 500));
 }
-const browser = await chromium.launch({ args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
+browser = await chromium.launch({ args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] });
 async function open(hash, width = 1440) {
   const page = await browser.newPage({ viewport: { width, height: 900 } });
   const errors = [];
@@ -83,6 +89,30 @@ try {
   if (!(await u.page.textContent(".pr-brief")).includes("has no brief")) fail("unknown paper: message");
   if (!(await u.page.$eval(".lab-block [data-copy]", (n) => n.dataset.copy)).includes("raft prepare --arxiv 2601.00001")) fail("unknown paper: command");
   await done("unknown paper", u);
+  // A slow page must never draw over the next one: open a study whose data is delayed, then go to Bench at once.
+  const race = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const raceErrors = [];
+  race.on("pageerror", (e) => raceErrors.push(String(e)));
+  await race.route("**/app/study/*.json", async (r) => { await new Promise((ok) => setTimeout(ok, 900)); await r.continue(); });
+  await race.goto(`${base}#/study/${study.id}/overview`);
+  await race.waitForTimeout(100);
+  await race.evaluate(() => { location.hash = "#/bench"; });
+  await race.waitForTimeout(1800);
+  if (await race.$(".tabs")) fail("race: the slow study page drew over the Bench page");
+  if ((await race.textContent("main h2"))?.trim() !== "Bench") fail("race: Bench is not the page shown");
+  await done("race", { page: race, errors: raceErrors });
+  // The flow tab on a machine without WebGL: the 2D fallback, and no console errors.
+  const noGL = await chromium.launch({ args: ["--disable-3d-apis", "--disable-gpu"] });
+  try {
+    const page = await noGL.newPage({ viewport: { width: 1440, height: 900 } });
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+    await page.goto(`${base}#/study/${study.id}/flow`);
+    await page.waitForTimeout(1500);
+    if (errors.length) fail(`flow without WebGL: console errors ${JSON.stringify(errors)}`);
+    else console.log("✓ flow without WebGL");
+  } finally { await noGL.close(); }
   const s = await open("#/");
   await s.page.fill("#q", "https://paperaft.vercel.app/papers/2608.27428/");
   await s.page.press("#q", "Enter");
@@ -92,7 +122,6 @@ try {
 } catch (e) {
   fail(String(e));
 } finally {
-  await browser.close();
-  server.kill();
-  rmSync(liveFile, { force: true });
+  await browser?.close();
+  cleanup();
 }

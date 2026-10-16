@@ -3,6 +3,12 @@ const app = document.getElementById("app");
 const LABELS = { testar: "Test it", observar: "Watch", nao_aplica: "Not applicable" };
 const TABS = ["overview", "results", "flow", "checker", "gaps", "bench"];
 let mounted = [];
+let gen = 0;  // the current page; a view that finishes after the user moved on draws nothing
+const STALE = Symbol("stale");
+function guard() {
+  const g = gen;
+  return (p) => Promise.resolve(p).then((v) => { if (g !== gen) throw STALE; return v; });
+}
 let home = null;
 
 function el(tag, attrs = {}, ...kids) {
@@ -79,7 +85,8 @@ async function loadHome(force = false) {
 }
 
 async function homeView() {
-  const d = await loadHome(true);
+  const wait = guard();
+  const d = await wait(loadHome(true));
   const c = d.counts;
   const blocked = (s) => s.stages.find((g) => g.ok === false);
   const first = d.studies.find((s) => !s.draft && blocked(s))
@@ -91,13 +98,13 @@ async function homeView() {
     first ? cmd(first.next) : null,
     d.warning ? el("p", { class: "warning" }, d.warning) : null,
     el("div", { class: "stats" },
-      [["Studies", c.studies], ["Verified runs", c.verified_runs], ["Bench entries", c.bench_entries], ["Open gaps", c.open_gaps]]
+      [["Studies", c.studies], ["Verified runs", c.verified_runs ?? "—"], ["Bench entries", c.bench_entries], ["Open gaps", c.open_gaps]]
         .map(([k, v]) => el("div", { class: "stat" }, el("b", {}, k), el("span", {}, v)))));
   const running = d.sessions.filter((s) => s.state === "running");
   if (running.length) {
     const box = el("div", { class: "grid running" });
     put(app, el("p", { class: "section-title" }, "Running now"), box);
-    const live = await import("/flow/live.js");
+    const live = await wait(import("/flow/live.js"));
     for (const s of running) {
       const slot = el("div", { class: "dark" });
       put(box, el("a", { href: "#/running", class: "card", "aria-label": `${s.study}, running` }, slot));
@@ -110,11 +117,12 @@ async function homeView() {
 }
 
 async function runningView() {
+  const wait = guard();
   put(app, el("p", { class: "eyebrow" }, "Live sessions"), el("h2", {}, "Running"),
     el("p", { class: "deck" }, "What prepare and bench are doing on this machine. Start a run in your terminal with --watch."));
   const slot = el("div", { class: "dark" });
   put(app, slot);
-  const live = await import("/flow/live.js");
+  const live = await wait(import("/flow/live.js"));
   mounted.push(live.mountLive(slot, { url: "/live.json" }));
 }
 
@@ -127,7 +135,7 @@ function benchTable(rows) {
 }
 
 async function benchView() {
-  const d = await loadHome(true);
+  const d = await guard()(loadHome(true));
   put(app, el("p", { class: "eyebrow" }, "Bring your agent"), el("h2", {}, "Bench"),
     el("p", { class: "deck" }, "Your agent works blind; the study's own grader scores its code in a copy it never touched."),
     cmd(`uv run raft bench --study ${d.studies.find((s) => !s.draft)?.id || "<study>"} --agent <claude-code|codex> --watch`));
@@ -146,7 +154,7 @@ function paperForm() {
 }
 
 async function paperView(id) {
-  const [ans, d] = await Promise.all([getJSON(`/paperraft/${id}.json`), loadHome()]);
+  const [ans, d] = await guard()(Promise.all([getJSON(`/paperraft/${id}.json`), loadHome()]));
   const b = ans.brief;
   const mine = d.studies.find((s) => s.arxiv === id);
   put(app, el("p", { class: "eyebrow" }, `arXiv ${id}` + (b && b.as_of ? ` · brief as of ${b.as_of}` : "")));
@@ -156,11 +164,12 @@ async function paperView(id) {
       ans.stale ? el("p", { class: "warning" }, "Paperraft can't be reached; this is the copy saved on this machine.") : null,
       b.recommendation ? el("p", {}, el("span", { class: "tag" }, `Paperraft says: ${LABELS[b.recommendation] || b.recommendation}`)) : null,
       b.summary ? el("p", { class: "deck" }, b.summary) : null,
-      (b.claims || []).length ? el("ul", {}, b.claims.slice(0, 6).map((c) => el("li", {}, c.statement || ""))) : null,
+      (b.claims || []).some((c) => c && c.statement)
+        ? el("ul", {}, b.claims.filter((c) => c && c.statement).slice(0, 6).map((c) => el("li", {}, c.statement))) : null,
       (b.minimum_test || []).length ? el("div", {}, el("h3", {}, "Minimum test"),
-        el("ul", {}, b.minimum_test.map((t) => el("li", {}, typeof t === "string" ? t : t.statement || t.step || JSON.stringify(t))))) : null,
+        el("ul", {}, b.minimum_test.filter(Boolean).map((t) => el("li", {}, typeof t === "string" ? t : t.statement || t.step || JSON.stringify(t))))) : null,
       el("p", { class: "links" }, ext(b.brief_url, "Read the brief on Paperraft"), ext(b.source_url, "arXiv")));
-    for (const r of b.lab_reproductions || []) {
+    for (const r of (b.lab_reproductions || []).filter(Boolean)) {
       put(brief, el("div", { class: "card" }, el("h3", {}, r.title || "Reproduction"), el("p", {}, r.summary || ""),
         r.methods_total ? el("p", { class: "muted" }, `${r.methods_verified}/${r.methods_total} methods verified`) : null));
     }
@@ -184,22 +193,29 @@ function overviewTab(s, body) {
     s.experiment ? el("div", { class: "note" }, el("p", { class: "section-title" }, "Experiment"), el("p", {}, s.experiment)) : null);
 }
 
+const num = (x) => (typeof x !== "number" ? "—" : x !== 0 && Math.abs(x) < 1e-3 ? x.toExponential(2) : String(Number(x.toPrecision(4))));
+
 function resultsTab(s, body) {
+  if (s.results === null) { put(body, el("p", { class: "warning" }, s.warning || "Results could not be read.")); return; }
   if (!s.results.length) { put(body, el("p", { class: "muted" }, "No methods or runs yet.")); return; }
   put(body, el("div", { class: "table-wrap" }, el("table", { class: "results-table" },
-    el("thead", {}, el("tr", {}, ["Method", "Status", "Runs passing", "Review", "Code"].map((h) => el("th", {}, h)))),
+    el("thead", {}, el("tr", {}, ["Method", "Status", "Errors (headline run)", "Runs passing", "Review", "Code"].map((h) => el("th", {}, h)))),
     el("tbody", {}, s.results.map((r) => el("tr", {}, el("td", {}, r.name),
       el("td", {}, el("span", { class: "status " + r.status.replace(" ", "-") }, r.status)),
+      el("td", {}, Object.keys(r.errors || {}).length
+        ? Object.entries(r.errors).map(([k, v]) => el("div", {}, `${k} ${num(v)}`)).concat(
+          r.tolerance != null ? [el("div", { class: "muted" }, `tolerance ${num(r.tolerance)}`)] : [])
+        : "—"),
       el("td", {}, r.total ? `${r.passed}/${r.total}` : "—"),
       el("td", {}, r.verdict ? `${r.verdict} by ${r.reviewer}` : "not reviewed"),
       el("td", {}, ext(r.code_url, "solver") || "—")))))));
 }
 
-async function flowTab(s, body) {
+async function flowTab(s, body, wait) {
   if (!s.flow) { put(body, el("p", { class: "muted" }, "The flow could not be drawn for this study.")); return; }
   const box = el("div", { class: "flow-box dark" });
   put(body, box);
-  const m = await import("/flow/flow.js");
+  const m = await wait(import("/flow/flow.js"));
   mounted.push(m.mountFlow(box, s.flow, {}));
 }
 
@@ -260,7 +276,7 @@ function gapsTab(s, body) {
     el("tbody", {}, g.gaps.map((x) => el("tr", {}, el("td", {}, x.page), el("td", {}, x.question,
       x.blocks ? el("p", { class: "muted" }, `Blocks: ${x.blocks}`) : null),
       el("td", {}, x.status.replace("_", " ")),
-      el("td", {}, x.status === "answered" ? [el("p", {}, x.answer.text), el("p", { class: "muted" }, `— ${x.answer.by}, ${x.answer.source}`)]
+      el("td", {}, x.status === "answered" && x.answer ? [el("p", {}, x.answer.text), el("p", { class: "muted" }, `— ${x.answer.by}, ${x.answer.source}`)]
         : x.answer && x.answer.note ? `Our note: ${x.answer.note}` : "—")))))));
 }
 
@@ -276,7 +292,8 @@ function benchTab(s, body) {
 
 async function studyView(id, tab) {
   tab = TABS.includes(tab) ? tab : "overview";
-  const s = await getJSON(`/app/study/${id}.json`);
+  const wait = guard();
+  const s = await wait(getJSON(`/app/study/${id}.json`));
   put(app, 
     el("p", { class: "eyebrow" }, [s.draft ? "draft" : "study", s.arxiv ? `arXiv ${s.arxiv}` : s.doi].filter(Boolean).join(" · ")),
     el("h2", {}, s.title),
@@ -289,10 +306,11 @@ async function studyView(id, tab) {
       el("a", { href: `#/study/${id}/${t}`, "aria-current": t === tab ? "page" : null }, t[0].toUpperCase() + t.slice(1)))));
   const body = el("section", { class: "tab-body" });
   put(app, body);
-  await ({ overview: overviewTab, results: resultsTab, flow: flowTab, checker: checkerTab, gaps: gapsTab, bench: benchTab })[tab](s, body);
+  await ({ overview: overviewTab, results: resultsTab, flow: flowTab, checker: checkerTab, gaps: gapsTab, bench: benchTab })[tab](s, body, wait);
 }
 
 async function route() {
+  gen += 1;
   clear();
   const [view = "", id, tab] = location.hash.replace(/^#\/?/, "").split("/");
   setNav(view === "study" ? "" : view);
@@ -306,6 +324,7 @@ async function route() {
     else if (view === "study" && id) await studyView(id, tab);
     else await homeView();
   } catch (e) {
+    if (e === STALE) return;  // the user already moved on
     put(app, el("p", { class: "warning" }, `This page could not load: ${e.message}`));
   }
   app.focus({ preventScroll: true });

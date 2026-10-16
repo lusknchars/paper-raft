@@ -23,13 +23,17 @@ def _site(root: Path) -> tuple[dict, str | None]:
 
 def _card(root: Path, study: str, lab: dict | None) -> dict:
     sd = root / "studies" / study
-    p = _paper(sd)
     error = None
+    try:
+        p = _paper(sd)
+    except (OSError, yaml.YAMLError) as e:  # a hand-edited paper.yaml must not take the app down
+        p, error = {}, f"studies/{study}/paper.yaml can't be read: {type(e).__name__}: {' '.join(str(e).split())[:200]}"
     try:
         st = studystate.stages(root, study, quick=True)
         nxt = studystate.next_step(root, study, st, studystate.tools(root, study))
     except Exception as e:  # noqa: BLE001
-        st, nxt, error = [], f"uv run raft status --study {study}", f"{type(e).__name__}: {e}"
+        st, nxt = [], f"uv run raft status --study {study}"
+        error = error or f"{type(e).__name__}: {e}"
     try:
         g = gaps.load(sd)
         g = gaps.counts(g) if g else None
@@ -54,7 +58,7 @@ def app_data(root) -> dict:
     bench = site["bench"]
     verified = sum(r["status"] == "verified" for s in site["studies"] for m in s["methods"] for r in m["runs"])
     counts = {"studies": len(cards), "running": sum(s["state"] == "running" for s in sessions),
-              "verified_runs": verified,
+              "verified_runs": None if warning else verified,  # unknown, never a false 0
               "bench_entries": sum(len(v["full"]) + len(v["partial"]) for v in bench.values()),
               "open_gaps": sum((c["gaps"] or {}).get("open", 0) + (c["gaps"] or {}).get("asked", 0) for c in cards)}
     return {"generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "today": date.today().isoformat(),
@@ -76,10 +80,14 @@ def study_detail(root, study: str) -> dict:
         out["results"].append({"name": m["name"], "status": m["headline_status"], "verdict": rv.get("verdict"),
                                "reviewer": rv.get("reviewer_agent"),
                                "passed": sum(bool(r["results"].get("pass")) for r in m["runs"]), "total": len(m["runs"]),
-                               "code_url": head["code_url"] if head else None})
-    if not lab:
+                               "code_url": head["code_url"] if head else None,
+                               "errors": (head["results"].get("errors") if head else None) or {},
+                               "tolerance": head["results"].get("tolerance") if head else None})
+    if warning:
+        out["results"] = None  # unknown: never shown as "no run" when the runs could not be read
+    elif not lab:
         out["results"] = [{"name": n, "status": "no run", "verdict": None, "reviewer": None, "passed": 0, "total": 0,
-                           "code_url": None} for n in runner.methods(sd)] if not out["draft"] else []
+                           "code_url": None, "errors": {}, "tolerance": None} for n in runner.methods(sd)] if not out["draft"] else []
     note = sd / "checker" / "NOTE.md"
     try:
         approval = checker.approval_state(root, study)
