@@ -3,9 +3,13 @@
 Built from extraction.json's missing items, deterministically. Paper Raft never sends anything and never looks up
 contact details: the owner sends the letter and records each answer in their own terminal."""
 import json
+import os
+import re
 from collections import Counter
 from datetime import date
 from pathlib import Path
+
+import yaml
 
 from . import paths, schema
 
@@ -128,6 +132,92 @@ def set_blocks(root: Path, study: str, gid: str, text: str) -> dict:
     save(sd, data)
     return data
 
+
+def _owner_only(what: str) -> None:
+    from .checker import AGENT_ENV
+    if any(os.environ.get(k) for k in AGENT_ENV):
+        raise SystemExit(f"raft: gaps {what} refuses to run inside an agent session (Claude Code or Codex): only the "
+                         "owner records what was sent to the authors and what they said, in their own terminal")
+
+
+def _need(sd: Path, study: str) -> dict:
+    data = load(sd)
+    if data is None:
+        raise SystemExit(f"raft: studies/{study} has no {FILE} yet; run `uv run raft gaps --study {study}` first")
+    return data
+
+
+def site_url(repo: str | None) -> str | None:
+    env = os.environ.get("RAFT_SITE_URL")
+    if env:
+        return env.rstrip("/") + "/"
+    m = re.fullmatch(r"https://github\.com/([^/]+)/([^/]+)", repo or "")
+    return f"https://{m.group(1).lower()}.github.io/{m.group(2)}/" if m else None
+
+
+def selection(data: dict) -> tuple[list[dict], list[dict], int]:
+    """What the letter asks: every unanswered gap that blocks a check, then the first few others."""
+    waiting = [g for g in data["gaps"] if g["status"] in UNANSWERED]
+    blocking = [g for g in waiting if g.get("blocks")]
+    small = [g for g in waiting if not g.get("blocks")]
+    return blocking, small[:LETTER_SMALL_CAP], max(0, len(small) - LETTER_SMALL_CAP)
+
+
+def _names(names: list[str]) -> str:
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
+def letter(root: Path, study: str, repo: str | None = None) -> str:
+    """Plain text for the owner to paste into an email. Changes nothing."""
+    sd = _study_dir(root, study)
+    data = _need(sd, study)
+    blocking, small, more = selection(data)
+    if not blocking and not small:
+        raise SystemExit(f"raft: no unanswered gaps in studies/{study}/{FILE}")
+    paper = yaml.safe_load((sd / "paper.yaml").read_text()) or {}
+    names = [n for n in paper.get("authors") or [] if n]
+    site = site_url(repo)
+    out = [f"Dear {_names(names)}," if names else "Dear authors,", "",
+           f"We reproduced parts of “{paper.get('title') or study}” with Paper Raft, an open harness where agents "
+           "implement a paper's methods and the harness grades their code against the paper's own claims. Some "
+           "details we needed are not in the paper; for each one we made an assumption, listed below with its page."]
+    if site:
+        out.append(f"The study: {site}#study/{study} · how it was built: {site}#flow/{study}")
+    n = 0
+
+    def section(title: str, gs: list[dict]) -> None:
+        nonlocal n
+        if not gs:
+            return
+        out.extend(["", title, ""])
+        for g in gs:
+            n += 1
+            out.append(f"{n}. p. {g['page']}: {g['question']}")
+            if g.get("blocks"):
+                out.append(f"   An answer would let us check: {g['blocks']}")
+    section("What blocks a stricter check", blocking)
+    section("Smaller details, if you have time", small)
+    if more:
+        where = f"{site}#study/{study}/gaps" if site else f"studies/{study}/{FILE} in the Paper Raft repository"
+        out.append(f"…and {more} more: {where}")
+    out += ["", "With your permission we'll publish your answers in the study, credited to you. If you'd rather not, "
+                "we'll use them only to check our own assumptions.", "", "Thank you,", ""]
+    return "\n".join(out)
+
+
+def mark_asked(root: Path, study: str, today: str | None = None) -> list[str]:
+    """Record that the letter's questions were sent: the same selection `letter` prints."""
+    _owner_only("--mark-asked")
+    sd = _study_dir(root, study)
+    data = _need(sd, study)
+    blocking, small, _ = selection(data)
+    if not blocking and not small:
+        raise SystemExit(f"raft: no unanswered gaps in studies/{study}/{FILE}")
+    today = today or _today()
+    for g in blocking + small:
+        g["status"], g["asked_on"] = "asked", today
+    save(sd, data)
+    return [g["id"] for g in blocking + small]
 
 def counts(data: dict) -> dict:
     c = Counter(g["status"] for g in data["gaps"])

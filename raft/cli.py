@@ -232,6 +232,8 @@ def main(argv: list[str] | None = None) -> int:
     g.add_argument("--all-studies", action="store_true")
     g.add_argument("--validate", action="store_true")
     g.add_argument("--blocks", nargs=2, metavar=("ID", "CHECK"), help="name the check a missing detail keeps out of the grader")
+    g.add_argument("--letter", action="store_true", help="print a letter to the authors (changes nothing)")
+    g.add_argument("--mark-asked", action="store_true", help="record that the letter's questions were sent today (owner only)")
     keep, rest = _split(sys.argv[1:] if argv is None else argv)
     args = p.parse_args(keep)
     if rest and args.cmd not in ("run", "repro"):
@@ -328,10 +330,18 @@ def main(argv: list[str] | None = None) -> int:
             return _report(problems, f"gaps.json valid in {len(targets)} stud{'y' if len(targets) == 1 else 'ies'}")
         if args.all_studies:
             p.error("gaps --all-studies works only with --validate")
-        if not args.study and not args.blocks:
+        if not args.study and not (args.blocks or args.letter or args.mark_asked):
             print(gaps.summary_text(root))
             return 0
         study = paths.resolve_study(root, args.study)
+        if args.letter:
+            from . import compare
+            print(gaps.letter(root, study, compare.repo_url(root)))
+            return 0
+        if args.mark_asked:
+            ids = gaps.mark_asked(root, study)
+            print(f"✓ marked {len(ids)} questions asked today: {', '.join(ids)}")
+            return 0
         if args.blocks:
             gid, text = args.blocks
             gaps.set_blocks(root, study, gid, text)
