@@ -240,8 +240,33 @@ def _code_hash(code_dir: Path, methods: list[str]) -> str:
     return h.hexdigest()
 
 
+def redact(data: bytes) -> bytes:
+    """Replace the user's home directory with ~ (only as a whole path component; never when HOME is unusable)."""
+    home = os.path.expanduser("~").rstrip("/")
+    if not home.startswith("/"):
+        return data
+    end = rb"(?![A-Za-z0-9_-]|\.[A-Za-z0-9_-])"  # not part of a longer name; punctuation after it is fine
+    for form in (home, home.replace("/", "\\/")):  # plain, and JSON's optional escaped slashes
+        data = re.sub(re.escape(form.encode()) + end, b"~", data)
+    return data
+
+
+def redact_file(path: Path) -> bool:
+    path = Path(path)
+    data = path.read_bytes()
+    new = redact(data)
+    if new == data:
+        return False
+    path.write_bytes(new)
+    return True
+
+
+def transcripts_with_home(paths) -> list[Path]:
+    return [Path(p) for p in paths if Path(p).is_file() and redact(Path(p).read_bytes()) != Path(p).read_bytes()]
+
+
 def trim_copy(src: Path, dst: Path, limit: int = TRANSCRIPT_LIMIT) -> None:
-    data = Path(src).read_bytes() if Path(src).is_file() else b""
+    data = redact(Path(src).read_bytes() if Path(src).is_file() else b"")
     if len(data) > limit:
         head = data[: limit // 2].rsplit(b"\n", 1)[0]
         tail = data[-(limit // 2):].split(b"\n", 1)[-1]
@@ -252,10 +277,13 @@ def trim_copy(src: Path, dst: Path, limit: int = TRANSCRIPT_LIMIT) -> None:
 
 
 def run_bench(root: Path, study: str, agent: str, *, model=None, oss=False, setup=None, methods=None, label=None,
-              cmd=None, timeout: float = 1800.0, run_timeout: float = 1800.0, out_dir=None, log=print, on_live=None) -> Path:
+              cmd=None, timeout: float = 1800.0, run_timeout: float = 1800.0, out_dir=None, log=print, on_live=None,
+              try_tools: bool = True) -> Path:
     root = Path(root).resolve()
     sd = _study_dir(root, study)
     agents.check(agent, model=model, oss=oss, cmd=cmd)
+    from . import doctor
+    doctor.preflight(root, [(agent, model, oss)], try_=try_tools, log=log)
     lab = runner.methods(sd)
     chosen = list(methods) if methods else lab
     if not chosen:
@@ -307,6 +335,17 @@ def _bench_body(root, study, sd, agent, chosen, ls, *, model, oss, setup, label,
             with live.watching(ls, sid, agent, logs / f"{m}.jsonl"):
                 t = tried[m] = agents.run(agent, brief, ws, m, model=model, oss=oss, cmd=cmd, timeout=timeout,
                                           transcript=logs / f"{m}.jsonl")
+            problem = agents.diagnose(agent, live.read_tail(logs / f"{m}.jsonl"),
+                                      live.read_tail(logs / f"{m}.stderr.txt", 65536), t["exit"])
+            if problem and not (ws / "studies" / study / "methods" / m / "solver.py").is_file():
+                step = f"implement {m}"
+                ls.end(sid, "failed", detail=problem.headline(step))
+                ls.set_problem(problem.as_dict("agent", step))
+                nxt = agents.OTHER.get(problem.tool, agent) if problem.kind == "refused" else agent
+                raise SystemExit(f"raft: {problem.headline(step)}\n  {agents.NAMES.get(problem.tool, problem.tool)}: "
+                                 f"{problem.detail}\n{problem.advice}\n"
+                                 f"Next: uv run raft bench --study {study} --agent {nxt} (add your --setup, --model "
+                                 "and --label again)")
             ls.end(sid, "done" if t["exit"] == 0 and not t["timed_out"] else "failed",
                    detail="timed out" if t["timed_out"] else f"agent exited {t['exit']}")
             log(f"  {m}: " + ("timed out" if t["timed_out"] else f"agent exited {t['exit']}") + f" after {t['wall_s']:.0f}s")

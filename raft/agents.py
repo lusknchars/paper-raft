@@ -8,6 +8,7 @@ import shlex
 import signal
 import subprocess
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 AGENTS = ("claude-code", "codex", "command")
@@ -18,6 +19,66 @@ ISOLATION = {
     "codex": "codex sandbox workspace-write (network off unless the user's codex config turns it on)",
     "command": "none enforced by raft",
 }
+NAMES = {"codex": "Codex", "claude-code": "Claude Code", "command": "your command"}
+OTHER = {"codex": "claude-code", "claude-code": "codex"}
+CODE_MODE = "timed out negotiating with the code-mode host"  # tests/fixtures/tool-failures/codex-code-mode.stderr.txt
+REFUSED = "flagged for possible"  # tests/fixtures/tool-failures/codex-refused.jsonl
+
+
+@dataclass(frozen=True)
+class Problem:
+    """What went wrong with the tool itself in a step, in plain words, with what to do."""
+    kind: str  # refused | tool-broken | tool-error | no-output
+    tool: str
+    detail: str
+    advice: str
+
+    def headline(self, step: str) -> str:
+        t = NAMES.get(self.tool, self.tool)
+        return {"refused": f"{t} refused the {step} brief (its content filter flagged it)",
+                "tool-broken": f"{t}'s shell tool is failing",
+                "tool-error": f"{t} stopped with an error",
+                "no-output": f"{t} printed nothing"}[self.kind]
+
+    def as_dict(self, role: str, step: str) -> dict:
+        return {"kind": self.kind, "tool": self.tool, "role": role, "detail": self.detail,
+                "headline": self.headline(step)}
+
+
+def _cut(text) -> str:
+    s = " ".join(str(text).split())
+    return s if len(s) <= 300 else s[:299] + "…"
+
+
+def diagnose(agent: str, text: str, stderr: str, exit_code) -> "Problem | None":
+    """Read a step's transcript and stderr. None when the tool itself looks fine (the step's files are judged
+    elsewhere). Unknown tools (`command`) are never diagnosed."""
+    if agent not in EXE:
+        return None
+    t = NAMES[agent]
+    check = f"Check {t} with `uv run raft doctor --agent {agent} --try`, then run the command below."
+    for line in stderr.splitlines():
+        if CODE_MODE in line:
+            return Problem("tool-broken", agent, _cut(line),
+                           f"Update or restart {t}, then check it with `uv run raft doctor --agent {agent} --try`.")
+    events = list(_events(text)) if exit_code is not None else []  # a timeout is reported as a timeout
+    if agent == "codex":
+        bad = [i for i, e in enumerate(events) if e.get("type") in ("error", "turn.failed")]
+        if bad and not any(e.get("type") == "turn.completed" for e in events[bad[-1] + 1:]):
+            e = events[bad[-1]]
+            msg = str((e.get("message") if e["type"] == "error" else (e.get("error") or {}).get("message")) or e["type"])
+            if REFUSED in msg:
+                return Problem("refused", agent, _cut(msg), f"Run this step with {NAMES[OTHER[agent]]} instead.")
+            return Problem("tool-error", agent, _cut(msg), check)
+    else:
+        results = [e for e in events if e.get("type") == "result"]
+        if results and results[-1].get("is_error"):
+            r = results[-1]
+            return Problem("tool-error", agent, _cut(r.get("result") or r.get("subtype") or "error"), check)
+    if exit_code is not None and not text.strip():
+        last = stderr.strip().splitlines()[-1] if stderr.strip() else "no output at all"
+        return Problem("no-output", agent, _cut(last), check)
+    return None
 
 
 def check(agent: str, *, model=None, oss=False, cmd=None) -> None:

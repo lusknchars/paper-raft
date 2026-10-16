@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from . import agents, bench, briefs, checker, gaps, live, schema, validate
+from . import agents, bench, briefs, checker, doctor, gaps, live, schema, studystate, validate
 
 
 def _transcript(sd: Path, step: str) -> Path:
@@ -53,6 +53,10 @@ def _agent(root: Path, sd: Path, step: str, text: str, agent: str, model, cmd, t
         bench.trim_copy(t, dest)
         if t.with_suffix(".stderr.txt").is_file() and t.with_suffix(".stderr.txt").stat().st_size:
             bench.trim_copy(t.with_suffix(".stderr.txt"), dest.with_suffix(".stderr.txt"))
+        r["problem"] = agents.diagnose(agent, live.read_tail(t), live.read_tail(t.with_suffix(".stderr.txt"), 65536),
+                                       r["exit"])
+        if r["problem"]:
+            log(f"  {step}: {r['problem'].headline(step)}")
         log(f"  {step}: " + ("timed out" if r["timed_out"] else f"agent exited {r['exit']}") + f" after {r['wall_s']:.0f}s")
     return r
 
@@ -71,7 +75,21 @@ def _step(root: Path, sd: Path, step: str, text: str, agent: str, model, cmd, ti
         raise SystemExit(f"raft: the {step} agent removed or changed attack evidence (checker/attacks/ or earlier "
                          f"rounds in checker/review.json). Restore them from git and rerun "
                          f"`uv run raft prepare --study {sd.name}`.")
-    return {"run": r, "before": before, "after": after}
+    return {"run": r, "before": before, "after": after, "problem": r["problem"]}
+
+
+def _stop_for(problem: "agents.Problem", step: str, study: str, role: str, agent: str, attacker: str,
+              ls: "live.Session"):
+    """The tool itself failed and the step's files don't pass: a second try with the same tool fails the same way."""
+    a, b = agent, attacker
+    if problem.kind == "refused" and problem.tool in agents.OTHER:
+        if role == "attacker":
+            b = agents.OTHER[problem.tool]
+        else:
+            a = agents.OTHER[problem.tool]
+    ls.set_problem(problem.as_dict(role, step))
+    raise SystemExit(f"raft: {problem.headline(step)}\n  {agents.NAMES.get(problem.tool, problem.tool)}: "
+                     f"{problem.detail}\n{problem.advice}\nNext: {studystate.prepare_cmd(study, a, b)}")
 
 
 def _round_results(sd: Path) -> list[dict]:
@@ -109,7 +127,7 @@ def _rounds_done(sd: Path) -> int:
 def prepare(root: Path, *, agent: str, arxiv: str | None = None, study: str | None = None,
             study_id: str | None = None, brief_url: str | None = None, model=None, cmd=None, attacker=None,
             attacker_model=None, attacker_cmd=None, timeout: float = 2700.0, run_timeout: float = 1800.0,
-            rounds: int = 3, log=print, fetcher=None, on_live=None) -> str:
+            rounds: int = 3, log=print, fetcher=None, on_live=None, try_tools: bool = True) -> str:
     root = Path(root)
     if bool(arxiv) == bool(study):
         raise SystemExit("raft: prepare needs --arxiv or --study (one of them)")
@@ -118,6 +136,7 @@ def prepare(root: Path, *, agent: str, arxiv: str | None = None, study: str | No
     if attacker == agent and attacker_cmd is None:
         attacker_cmd, attacker_model = cmd, attacker_model or model
     agents.check(attacker, model=attacker_model, cmd=attacker_cmd)
+    doctor.preflight(root, [(agent, model, False), (attacker, attacker_model, False)], try_=try_tools, log=log)
     if arxiv:
         from . import arxiv as intake
         study = intake.intake(root, arxiv, study_id=study_id, brief=brief_url,
@@ -126,6 +145,9 @@ def prepare(root: Path, *, agent: str, arxiv: str | None = None, study: str | No
     sd = root / "studies" / study
     if not (sd / "paper.yaml").is_file():
         raise SystemExit(f"raft: no study {study!r}")
+    for t in sorted((sd / "checker" / "transcripts").glob("*")):
+        if t.is_file():
+            bench.redact_file(t)
     paper = yaml.safe_load((sd / "paper.yaml").read_text()) or {}
     ls = live.Session(root, "prepare", study, title=paper.get("title"), arxiv=str(paper["arxiv"]) if paper.get("arxiv") else None,
                       agents={"builder": {"tool": agent, "model": model}, "attacker": {"tool": attacker, "model": attacker_model}},
@@ -153,7 +175,7 @@ def prepare(root: Path, *, agent: str, arxiv: str | None = None, study: str | No
 
 def _prepare_steps(root: Path, sd: Path, study: str, ls: "live.Session", *, agent, model, cmd, attacker,
                    attacker_model, attacker_cmd, timeout, run_timeout, rounds, log) -> None:
-    next_step = f"Fix it by hand or rerun `uv run raft prepare --study {study} --agent {agent}`."
+    next_step = f"Fix it by hand or run `{studystate.prepare_cmd(study, agent, attacker)}`."
 
     problems = validate.extraction(sd)
     if not problems:
@@ -166,9 +188,12 @@ def _prepare_steps(root: Path, sd: Path, study: str, ls: "live.Session", *, agen
         sid = f"extract-{attempt + 1}"
         text = _with_problems(briefs.render(root, "extractor", study), "Problems from the last attempt",
                               problems if attempt else [])
-        _step(root, sd, "extract", text, agent, model, cmd, timeout, log, ls, sid,
-              "Extract" + (", try 2" if attempt else ""), "builder")
+        done = _step(root, sd, "extract", text, agent, model, cmd, timeout, log, ls, sid,
+                     "Extract" + (", try 2" if attempt else ""), "builder")
         problems = validate.extraction(sd)
+        if problems and done["problem"]:
+            ls.end(sid, "failed", detail=done["problem"].headline("extract"))
+            _stop_for(done["problem"], "extract", study, "builder", agent, attacker, ls)
         ls.end(sid, "failed" if problems else "done",
                detail=f"{len(problems)} problem(s) in extraction.json" if problems else "extraction.json valid")
     if problems:
@@ -188,10 +213,13 @@ def _prepare_steps(root: Path, sd: Path, study: str, ls: "live.Session", *, agen
         sid = f"build-{attempt + 1}"
         text = _with_problems(briefs.render(root, "checker-builder", study), "Holes from the last attempt",
                               holes if attempt else [])
-        _step(root, sd, "build", text, agent, model, cmd, timeout, log, ls, sid,
-              "Build checker" + (", try 2" if attempt else ""), "builder")
+        done = _step(root, sd, "build", text, agent, model, cmd, timeout, log, ls, sid,
+                     "Build checker" + (", try 2" if attempt else ""), "builder")
         holes = checker.validate(root, study, run_timeout, log=lambda s: None)
         ls.set_results(holes=len(holes))
+        if holes and done["problem"]:
+            ls.end(sid, "failed", detail=done["problem"].headline("build"))
+            _stop_for(done["problem"], "build", study, "builder", agent, attacker, ls)
         ls.end(sid, "failed" if holes else "done", detail=f"{len(holes)} hole(s)" if holes else "checker validates")
     if holes:
         raise SystemExit("raft: the checker does not hold after 2 builder tries:\n  " + "\n  ".join(holes)
@@ -212,9 +240,12 @@ def _prepare_steps(root: Path, sd: Path, study: str, ls: "live.Session", *, agen
         new_files = set(done["after"]["attacks"]) - set(done["before"]["attacks"])
         new_rounds = done["after"]["rounds"][len(done["before"]["rounds"]):]
         if done["run"]["timed_out"] or not new_files or not new_rounds or not new_rounds[-1].get("attacks"):
+            if done["problem"]:
+                ls.end(sid, "failed", detail=done["problem"].headline("attack"))
+                _stop_for(done["problem"], "attack", study, "attacker", agent, attacker, ls)
             why = "timed out" if done["run"]["timed_out"] else "the attack step recorded no new round and attack"
             raise SystemExit(f"raft: round {rnd}: {why} (checker/attacks/ and checker/review.json are unchanged). "
-                             f"Read checker/transcripts/, then rerun `uv run raft prepare --study {study}`.")
+                             f"Read checker/transcripts/, then run `{studystate.prepare_cmd(study, agent, attacker)}`.")
         holes = checker.validate(root, study, run_timeout, log=lambda s: None)
         ls.set_results(holes=len(holes), rounds=_round_results(sd))
         ls.end(sid, detail="every attack was blocked" if not holes else f"{len(holes)} hole(s) got through")
@@ -225,13 +256,16 @@ def _prepare_steps(root: Path, sd: Path, study: str, ls: "live.Session", *, agen
         if i == rounds - 1:
             raise SystemExit(f"raft: holes remain after {rounds} attack rounds:\n  " + "\n  ".join(holes)
                              + f"\nRead studies/{study}/checker/review.json and decide: fix problem/ yourself, "
-                             f"or rerun `uv run raft prepare --study {study}`.")
+                             f"or run `{studystate.prepare_cmd(study, agent, attacker)}`.")
         ls.add_total(1)
         fid = f"fix-{rnd}"
         text = _with_problems(briefs.render(root, "checker-builder", study),
-                              "Attacks or checks that got through; fix problem/ so they fail", holes)
-        _step(root, sd, "build", text, agent, model, cmd, timeout, log, ls, fid, f"Fix checker after round {rnd}",
-              "builder")
+                              "Decoys or checks that passed the grader; fix problem/ so they fail", holes)
+        done = _step(root, sd, "build", text, agent, model, cmd, timeout, log, ls, fid,
+                     f"Fix checker after round {rnd}", "builder")
         holes = checker.validate(root, study, run_timeout, log=lambda s: None)
         ls.set_results(holes=len(holes))
+        if holes and done["problem"]:
+            ls.end(fid, "failed", detail=done["problem"].headline("build"))
+            _stop_for(done["problem"], "build", study, "builder", agent, attacker, ls)
         ls.end(fid, detail=f"{len(holes)} hole(s)" if holes else "checker validates")

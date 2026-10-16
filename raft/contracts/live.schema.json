@@ -52,6 +52,13 @@
     },
     "results": {"type": "object"},
     "message": {"type": ["string", "null"]},
-    "next": {"type": ["string", "null"]}
+    "next": {"type": ["string", "null"]},
+    "problem": {
+      "type": ["object", "null"], "additionalProperties": false,
+      "required": ["kind", "tool", "role", "detail", "headline"],
+      "properties": {"kind": {"enum": ["refused", "tool-broken", "tool-error", "no-output"]},
+                     "tool": {"type": "string"}, "role": {"type": "string"},
+                     "detail": {"type": "string"}, "headline": {"type": "string"}}
+    }
   }
 }
