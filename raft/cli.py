@@ -42,7 +42,7 @@ KNOWN = {"--all", "--all-studies", "--timeout", "--study", "--validate", "--out"
          "--assets", "--port", "--no-open", "--agent", "--model", "--oss", "--setup", "--methods", "--label", "--cmd",
          "--run-timeout", "--verify", "--table", "--force", "--arxiv", "--id", "--brief", "--round", "--without-attacks", "--attacker", "--attacker-model", "--attacker-cmd",
          "--rounds", "--watch", "--letter", "--mark-asked", "--answer", "--decline", "--blocks", "--from", "--by",
-         "--source", "--publish", "--private", "--note", "--reword"}
+         "--source", "--publish", "--private", "--note", "--reword", "--try", "--no-try", "--quick"}
 
 
 def _split(argv: list[str]) -> tuple[list[str], list[str]]:
@@ -197,6 +197,7 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--run-timeout", type=_duration, default=1800.0, help="per graded run (default 30m)")
     b.add_argument("--verify", nargs="*", metavar="ENTRY", help="rerun entries (default: every entry) and check their numbers")
     b.add_argument("--table", action="store_true", help="print the scoreboard as markdown")
+    b.add_argument("--no-try", action="store_true", help="skip the tool's daily test task")
     gr = sub.add_parser("grader", help="copy a grader from the library into a study's problem/graders/")
     gr.add_argument("action", choices=("add",))
     gr.add_argument("name")
@@ -228,6 +229,14 @@ def main(argv: list[str] | None = None) -> int:
     pr.add_argument("--timeout", type=_duration, default=2700.0, help="per agent step (default 45m)")
     pr.add_argument("--run-timeout", type=_duration, default=1800.0)
     pr.add_argument("--rounds", type=int, default=3)
+    pr.add_argument("--no-try", action="store_true", help="skip the tools' daily test task")
+    dr = sub.add_parser("doctor", help="check the agent tools (installed, logged in, --try a trivial task) or a study's transcripts")
+    dr.add_argument("--agent", choices=("claude-code", "codex"))
+    dr.add_argument("--attacker", choices=("claude-code", "codex"))
+    dr.add_argument("--model")
+    dr.add_argument("--oss", action="store_true")
+    dr.add_argument("--try", dest="try_", action="store_true", help="also run a trivial task (uses a few cents of your quota)")
+    dr.add_argument("--study", help="report transcripts in this study that still hold your home path")
     g = sub.add_parser("gaps", help="questions to the authors for what the paper leaves out, and their answers")
     g.add_argument("--study")
     g.add_argument("--all-studies", action="store_true")
@@ -320,7 +329,7 @@ def main(argv: list[str] | None = None) -> int:
         with _live_view(root, args.watch):
             dest = bench.run_bench(root, study, args.agent, model=args.model, oss=args.oss, setup=args.setup,
                                    methods=methods, label=args.label, cmd=args.agent_cmd, timeout=args.timeout,
-                                   run_timeout=args.run_timeout)
+                                   run_timeout=args.run_timeout, try_tools=not args.no_try)
         entry = json.loads((dest / "entry.json").read_text())
         print(f"✓ score {entry['score']['passed']}/{entry['score']['expected']} → {dest.relative_to(root)}\n"
               "  Read the transcript before sharing it, then commit the folder and open a pull request to join the scoreboard.")
@@ -344,6 +353,23 @@ def main(argv: list[str] | None = None) -> int:
         path = checker.approve(root, study, without_attacks=args.without_attacks, run_timeout=args.run_timeout)
         print(f"✓ approved: {path.relative_to(root)}. Commit it; runs and bench now work on {study}.")
         return 0
+
+    if args.cmd == "doctor":
+        from . import doctor
+        if args.study:
+            study = paths.resolve_study(root, args.study)
+            found = doctor.home_paths(root, study)
+            for f in found:
+                print(f"✗ {f.relative_to(root)} holds your home path; `uv run raft prepare --study {study} …` cleans it")
+            return _report([] if not found else [f"{len(found)} transcript(s) to clean"], f"{study}: no home paths in transcripts")
+        tools = [(t, args.model, args.oss) for t in dict.fromkeys(x for x in (args.agent, args.attacker) if x)] \
+            or [("claude-code", None, False), ("codex", None, False)]
+        if args.try_:
+            print("• the test task uses a few cents of your quota")
+        checks = doctor.check_tools(root, tools, try_=args.try_)
+        for c in checks:
+            print(("✓ " if c.ok else "✗ ") + c.line)
+        return 0 if all(c.ok for c in checks) else 1
 
     if args.cmd == "gaps":
         from . import gaps
@@ -397,7 +423,7 @@ def main(argv: list[str] | None = None) -> int:
             prepare.prepare(root, agent=args.agent, arxiv=args.arxiv, study=args.study, study_id=args.new_id,
                             brief_url=args.brief, model=args.model, cmd=args.agent_cmd, attacker=args.attacker,
                             attacker_model=args.attacker_model, attacker_cmd=args.attacker_cmd, timeout=args.timeout,
-                            run_timeout=args.run_timeout, rounds=args.rounds)
+                            run_timeout=args.run_timeout, rounds=args.rounds, try_tools=not args.no_try)
         return 0
 
     params = _params(rest)

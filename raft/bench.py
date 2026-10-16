@@ -274,10 +274,13 @@ def trim_copy(src: Path, dst: Path, limit: int = TRANSCRIPT_LIMIT) -> None:
 
 
 def run_bench(root: Path, study: str, agent: str, *, model=None, oss=False, setup=None, methods=None, label=None,
-              cmd=None, timeout: float = 1800.0, run_timeout: float = 1800.0, out_dir=None, log=print, on_live=None) -> Path:
+              cmd=None, timeout: float = 1800.0, run_timeout: float = 1800.0, out_dir=None, log=print, on_live=None,
+              try_tools: bool = True) -> Path:
     root = Path(root).resolve()
     sd = _study_dir(root, study)
     agents.check(agent, model=model, oss=oss, cmd=cmd)
+    from . import doctor
+    doctor.preflight(root, [(agent, model, oss)], try_=try_tools, log=log)
     lab = runner.methods(sd)
     chosen = list(methods) if methods else lab
     if not chosen:

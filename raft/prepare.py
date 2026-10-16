@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from . import agents, bench, briefs, checker, gaps, live, schema, studystate, validate
+from . import agents, bench, briefs, checker, doctor, gaps, live, schema, studystate, validate
 
 
 def _transcript(sd: Path, step: str) -> Path:
@@ -127,7 +127,7 @@ def _rounds_done(sd: Path) -> int:
 def prepare(root: Path, *, agent: str, arxiv: str | None = None, study: str | None = None,
             study_id: str | None = None, brief_url: str | None = None, model=None, cmd=None, attacker=None,
             attacker_model=None, attacker_cmd=None, timeout: float = 2700.0, run_timeout: float = 1800.0,
-            rounds: int = 3, log=print, fetcher=None, on_live=None) -> str:
+            rounds: int = 3, log=print, fetcher=None, on_live=None, try_tools: bool = True) -> str:
     root = Path(root)
     if bool(arxiv) == bool(study):
         raise SystemExit("raft: prepare needs --arxiv or --study (one of them)")
@@ -136,6 +136,7 @@ def prepare(root: Path, *, agent: str, arxiv: str | None = None, study: str | No
     if attacker == agent and attacker_cmd is None:
         attacker_cmd, attacker_model = cmd, attacker_model or model
     agents.check(attacker, model=attacker_model, cmd=attacker_cmd)
+    doctor.preflight(root, [(agent, model, False), (attacker, attacker_model, False)], try_=try_tools, log=log)
     if arxiv:
         from . import arxiv as intake
         study = intake.intake(root, arxiv, study_id=study_id, brief=brief_url,
